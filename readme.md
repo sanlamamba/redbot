@@ -24,48 +24,48 @@ Before running the bot, make sure you have the following:
 
 ### 1. Clone the repository
 
-[[[bash
+```bash
 git clone https://github.com/sanlamamba/redbot.git
 cd redbot
-]]]
+```
 
 ### 2. Install dependencies
 
-[[[bash
+```bash
 pip install -r requirements.txt
-]]]
+```
 
 ### 3. Configure environment variables
 
 Create a `.env` file in the project root with the following content:
 
-[[[bash
+```bash
 REDDIT_CLIENT_ID=<your_reddit_client_id>
 REDDIT_CLIENT_SECRET=<your_reddit_client_secret>
 REDDIT_USER_AGENT=<your_reddit_user_agent>
 DISCORD_TOKEN=<your_discord_token>
 DISCORD_CHANNEL_ID=<your_discord_channel_id>
-]]]
+```
 
 ### 4. Configure additional settings in `config.py`
 
 Modify `config.py` to adjust subreddit lists, keywords, and other options:
 
-[[[python
+```python
 SUBREDDITS = ['forhire', 'jobbit', 'jobopenings', 'remotejs', 'remotejobs']
 KEYWORDS = ['python', 'javascript', 'java', 'developer', 'software']
 CHECK_FREQUENCY_SECONDS = 60
 POST_LIMIT = 20
 SENT_POSTS_FILE = 'sent_posts.csv'
-]]]
+```
 
 ### 5. Run the bot
 
 To start the bot, simply run:
 
-[[[bash
+```bash
 python main.py
-]]]
+```
 
 ### 6. Deploy on AWS EC2
 
@@ -79,7 +79,7 @@ python main.py
 
 Example using `nohup`:
 
-[[[bash
+```bash
 nohup python main.py &
-]]]
+```
 
