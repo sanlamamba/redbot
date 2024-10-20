@@ -25,8 +25,8 @@ Before running the bot, make sure you have the following:
 ### 1. Clone the repository
 
 [[[bash
-git clone https://github.com/your-username/reddit-discord-job-scraper-bot.git
-cd reddit-discord-job-scraper-bot
+git clone https://github.com/sanlamamba/redbot.git
+cd redbot
 ]]]
 
 ### 2. Install dependencies
