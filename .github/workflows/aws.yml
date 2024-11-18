@@ -1,52 +1,40 @@
-name: Deploy to AWS
+name: Deploy to AWS EC2
 
 on:
   push:
     branches:
-      - main # Change this to your default branch
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    if: github.ref == 'refs/heads/main'
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Install AWS CLI
+      - name: Compress the code including run.sh
+        run: tar -czf redbot.tgz -C .
+
+      - name: Set up SSH connection
+        uses: webfactory/ssh-agent@v0.5.2
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
+      - name: Transfer code to AWS EC2 and decompress
+        run: scp -o StrictHostKeyChecking=no redbot.tgz ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com:~
+
+      - name: Decompress the code on AWS EC2
         run: |
-          sudo apt-get update
-          sudo apt-get install -y awscli
+          ssh -o StrictHostKeyChecking=no ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com '
+          mkdir -p ~/redbot &&
+          tar -xzf ~/redbot.tgz -C ~/redbot'
 
-      - name: Configure AWS CLI
-        run: |
-          aws configure set aws_access_key_id "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          aws configure set aws_secret_access_key "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-          aws configure set region "us-east-1"  # Change to your region
+      - name: Copy the ENV from ./files to the ./redbot directory
+        run: cp ./files/.env ~/redbot
 
-      - name: Install SSH Client
-        run: sudo apt-get install -y openssh-client
+      - name: Execute deployment script on EC2
+        run: ssh -o StrictHostKeyChecking=no ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com 'bash ~/redbot/run.sh'
 
-      - name: Copy files to EC2
-        env:
-          EC2_USER: ubuntu
-          EC2_IP: ${{ secrets.EC2_IP }}
-          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          echo "starting deployment on IP : " + $EC2_IP + " with user : " + $EC2_USER
-          echo "$SSH_KEY" > private_key.pem
-          chmod 600 private_key.pem
-          scp -o StrictHostKeyChecking=no -i private_key.pem -r . $EC2_USER@$EC2_IP:/home/$EC2_USER/project
-
-      - name: Run deployment script
-        env:
-          EC2_USER: ubuntu
-          EC2_IP: ${{ secrets.EC2_IP }}
-          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          echo "$SSH_KEY" > private_key.pem
-          chmod 600 private_key.pem
-          ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_IP 'bash ~/project/run.bash'
-
-      - name: Clean up
-        run: rm -f private_key.pem
+      - name: Cleanup
+        run: ssh -o StrictHostKeyChecking=no ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com 'rm ~/redbot.tgz'
