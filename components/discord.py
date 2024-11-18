@@ -10,11 +10,14 @@ import discord
 from utils.constants import DISCORD_CHANNEL_ID, CHECK_FREQUENCY_SECONDS
 from utils.database import save_sent_post
 from utils.bprint import bprint as bp
+from utils.database import purge_sent_posts
 from .reddit import RedditStream
 
 
 class DiscordBot(discord.Client):
-    """A class to interact with the Discord API and send new Reddit submissions to a Discord channel."""
+    """A class to interact with the Discord API
+    and send new Reddit submissions to a Discord channel.
+    """
 
     def __init__(self, reddit_stream: RedditStream, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -73,6 +76,7 @@ class DiscordBot(discord.Client):
         """Event handler for when the bot is ready."""
         bp.info(f"Logged in as {self.user.name}")
         await asyncio.gather(self.bulk_delete(), self.start_scraping_jobs())
+        await purge_sent_posts()
 
     async def start_scraping_jobs(self) -> None:
         """Start the Reddit job scraping process."""

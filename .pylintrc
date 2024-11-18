@@ -3,6 +3,7 @@
 disable=E0015
 
 
+
 # Analyse import fallback blocks. This can be used to support both Python 2 and
 # 3 compatible code, which means that the block might have code that exists
 # only in one or another interpreter, leading to false positives when analysed.
@@ -63,7 +64,8 @@ ignore-paths=
 # Files or directories matching the regular expression patterns are skipped.
 # The regex matches against base names, not paths. The default value ignores
 # Emacs file locks
-ignore-patterns=^\.#
+# ignore the md, logs and log, and db, txt, and sh and bash, ignore readme.md
+ignore-patterns=^\..*\.md$,^.*\.log$,^.*\.db$,^.*\.txt$,^.*\.sh$,^.*\.bash$,^readme\.md$
 
 # List of module names for which member attributes should not be checked and
 # will not be imported (useful for modules/projects where namespaces are

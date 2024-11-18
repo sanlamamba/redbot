@@ -77,4 +77,4 @@ KEYWORDS: list = [
 
 CHECK_FREQUENCY_SECONDS: int = 60
 POST_LIMIT: int = 100
-SENT_POSTS_FILE: str = "sent_posts.csv"
+SENT_POSTS_FILE: str = "sent_posts.db"

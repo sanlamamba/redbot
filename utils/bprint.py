@@ -1,3 +1,7 @@
+"""
+A module to print messages with timestamps. 
+"""
+
 from datetime import datetime
 
 

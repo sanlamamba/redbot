@@ -5,7 +5,7 @@ to retrieve new job postings from specified subreddits based on defined keywords
 """
 
 import asyncpraw
-from utils.database import load_sent_posts
+from utils.database import load_sent_posts, save_sent_post
 from utils.bprint import bprint as bp
 from utils.constants import (
     REDDIT_CLIENT_ID,
@@ -54,3 +54,13 @@ class RedditStream:
 
         bp.info(f"Found {len(submissions)} new posts in the subreddits.")
         return submissions
+
+    def add_sent_post(self, url: str) -> None:
+        """Add a sent post URL to the sent_posts set.
+
+        Args:
+            url (str): The URL of the sent post.
+        """
+        self.sent_posts.add(url)
+        bp.info(f"Added {url} to the list of sent posts.")
+        save_sent_post(url)
