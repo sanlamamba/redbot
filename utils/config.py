@@ -1,0 +1,80 @@
+"""
+Configuration file for the Reddit job scraper.
+
+This module contains the configuration settings for the Reddit job scraper,
+including the list of subreddits to monitor, keywords for filtering job postings,
+and other relevant parameters.
+"""
+
+SUBREDDITS: list = [
+    "forhire",
+    "jobbit",
+    "jobopenings",
+    "remotejs",
+    "remotejobs",
+    "remotepython",
+    "remotejava",
+    "RemoteWork",
+    "techjobs",
+]
+
+KEYWORDS: list = [
+    "python",
+    "javascript",
+    "java",
+    "c++",
+    "c#",
+    "developer",
+    "software",
+    "programmer",
+    "coding",
+    "backend",
+    "frontend",
+    "fullstack",
+    "web developer",
+    "react",
+    "angular",
+    "vue",
+    "node",
+    "machine learning",
+    "ai",
+    "artificial intelligence",
+    "devops",
+    "cloud",
+    "aws",
+    "azure",
+    "docker",
+    "kubernetes",
+    "engineer",
+    "programming",
+    "data scientist",
+    "data analyst",
+    "golang",
+    "ruby",
+    "php",
+    "remote",
+    "work from home",
+    "full-stack developer",
+    "backend engineer",
+    "senior developer",
+    "lead developer",
+    "tech lead",
+    "software engineer",
+    "remote developer",
+    "remote engineer",
+    "remote programmer",
+    "remote software",
+    "wordpress",
+    "shopify",
+    "magento",
+    "laravel",
+    "django",
+    "flask",
+    "rails",
+    "sql",
+    "nosql",
+]
+
+CHECK_FREQUENCY_SECONDS: int = 60
+POST_LIMIT: int = 100
+SENT_POSTS_FILE: str = "sent_posts.csv"
