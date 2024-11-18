@@ -14,8 +14,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
 
+      - name: Create temporary directory and copy files
+        run: |
+          mkdir temp_redbot
+          cp -r ./* temp_redbot/
+          cp -r ./.git temp_redbot/  # Include .git if needed, otherwise remove this line
+
       - name: Compress the code
-        run: tar -czf redbot.tgz -C . .
+        run: tar -czf redbot.tgz -C temp_redbot .
 
       - name: Set up SSH connection
         uses: webfactory/ssh-agent@v0.5.2
@@ -29,8 +35,9 @@ jobs:
           mkdir -p ~/redbot && 
           tar -xzf ~/redbot.tgz -C ~/redbot'
 
-      - name: Copy Env to the folder
-        run: cp /home/ubuntu/files/.env /home/ubuntu/redbot
+      - name: Copy .env to the folder
+        run: |
+          scp -o StrictHostKeyChecking=no ./files/.env ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com:~/redbot/.env
 
       - name: Execute deployment script on EC2
         run: ssh -o StrictHostKeyChecking=no ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com 'bash ~/redbot/run.sh'
