@@ -33,6 +33,7 @@ jobs:
           EC2_IP: ${{ secrets.EC2_IP }}
           SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
+          echo "starting deployment on $EC2_IP : $EC2_USER"
           echo "$SSH_KEY" > private_key.pem
           chmod 600 private_key.pem
           scp -o StrictHostKeyChecking=no -i private_key.pem -r . $EC2_USER@$EC2_IP:/home/$EC2_USER/project
