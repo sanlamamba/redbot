@@ -9,12 +9,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Compress the code including run.sh
-        run: tar -czf redbot.tgz -C .
+      - name: Compress the code
+        run: tar -czf redbot.tgz -C . .
 
       - name: Set up SSH connection
         uses: webfactory/ssh-agent@v0.5.2
@@ -22,16 +23,14 @@ jobs:
           ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
       - name: Transfer code to AWS EC2 and decompress
-        run: scp -o StrictHostKeyChecking=no redbot.tgz ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com:~
-
-      - name: Decompress the code on AWS EC2
         run: |
+          scp -o StrictHostKeyChecking=no redbot.tgz ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com:~
           ssh -o StrictHostKeyChecking=no ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com '
-          mkdir -p ~/redbot &&
+          mkdir -p ~/redbot && 
           tar -xzf ~/redbot.tgz -C ~/redbot'
 
-      - name: Copy the ENV from ./files to the ./redbot directory
-        run: cp ./files/.env ~/redbot
+      - name: Copy Env to the folder
+        run: cp /home/ubuntu/files/.env /home/ubuntu/redbot
 
       - name: Execute deployment script on EC2
         run: ssh -o StrictHostKeyChecking=no ubuntu@ec2-34-229-250-112.compute-1.amazonaws.com 'bash ~/redbot/run.sh'
