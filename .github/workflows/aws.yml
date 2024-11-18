@@ -1,0 +1,57 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main 
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install AWS CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y awscli
+
+    - name: Configure AWS CLI
+      env:
+        AWS_REGION: us-east-1a
+        AWS_IAM_USER: ${{ secrets.AWS_IAM_USER }}  # Store your IAM username in secrets
+        AWS_IAM_PASSWORD: ${{ secrets.AWS_IAM_PASSWORD }}  # Store your IAM password in secrets
+      run: |
+        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID || true
+        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY || true
+        aws configure set region $AWS_REGION || true
+        # Use the IAM user and password to authenticate
+        aws sts get-caller-identity --username $AWS_IAM_USER --password $AWS_IAM_PASSWORD
+
+    - name: Install SSH Client
+      run: sudo apt-get install -y openssh-client
+
+    - name: Copy files to EC2
+      env:
+        EC2_USER: ubuntu  # Change if your user is different
+        EC2_IP: ${{ secrets.EC2_IP }}  # Store your EC2 IP in secrets
+        SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}  # Store your private key in secrets
+      run: |
+        echo "$SSH_KEY" > private_key.pem
+        chmod 600 private_key.pem
+        scp -o StrictHostKeyChecking=no -i private_key.pem -r . $EC2_USER@$EC2_IP:/home/$EC2_USER/project
+
+    - name: Run deployment script
+      env:
+        EC2_USER: ubuntu  # Change if your user is different
+        EC2_IP: ${{ secrets.EC2_IP }}  # Store your EC2 IP in secrets
+        SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}  # Store your private key in secrets
+      run: |
+        echo "$SSH_KEY" > private_key.pem
+        chmod 600 private_key.pem
+        ssh -o StrictHostKeyChecking=no -i private_key.pem $EC2_USER@$EC2_IP 'bash ~/project/run.bash'
+
+    - name: Clean up
+      run: rm -f private_key.pem
