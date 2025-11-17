@@ -1,0 +1,558 @@
+"""Enhanced database operations for job scraper bot."""
+import sqlite3
+from datetime import datetime, timedelta
+from typing import Optional, List, Set
+from pathlib import Path
+from contextlib import contextmanager
+
+from .models import (
+    JobPosting,
+    UserProfile,
+    UserPreferences,
+    UserKeyword,
+    JobInteraction,
+    DailyStatistics
+)
+
+
+class Database:
+    """Database manager for job scraper bot."""
+
+    def __init__(self, db_path: str = "sent_posts.db"):
+        """Initialize database manager.
+
+        Args:
+            db_path: Path to SQLite database file
+        """
+        self.db_path = db_path
+        self._ensure_db_file()
+
+    def _ensure_db_file(self):
+        """Ensure database file exists."""
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+
+    @contextmanager
+    def get_connection(self):
+        """Get database connection with automatic cleanup."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row  # Access columns by name
+        try:
+            yield conn
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise e
+        finally:
+            conn.close()
+
+    def initialize_database(self):
+        """Initialize database with legacy sent_posts table.
+
+        New schema is applied via migrations.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS sent_posts (
+                    url TEXT PRIMARY KEY,
+                    timestamp TEXT NOT NULL
+                )
+                """
+            )
+
+    # ===== Legacy Functions (Backward Compatibility) =====
+
+    def load_sent_posts(self) -> Set[str]:
+        """Load sent posts from database.
+
+        Returns:
+            Set of sent post URLs
+        """
+        self.initialize_database()
+        sent_posts = set()
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT url FROM sent_posts")
+                sent_posts = {row[0] for row in cursor.fetchall()}
+        except Exception as e:
+            print(f"Error loading sent posts: {e}")
+
+        return sent_posts
+
+    def save_sent_post(self, url: str) -> None:
+        """Save sent post URL with timestamp.
+
+        Args:
+            url: Post URL to save
+        """
+        if not isinstance(url, str):
+            return
+
+        self.initialize_database()
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR IGNORE INTO sent_posts (url, timestamp) VALUES (?, ?)",
+                    (url, datetime.utcnow().isoformat()),
+                )
+        except Exception as e:
+            print(f"Error saving sent post: {e}")
+
+    # ===== Job Posting Operations =====
+
+    def save_job(self, job: JobPosting) -> Optional[int]:
+        """Save job posting to database.
+
+        Args:
+            job: JobPosting instance
+
+        Returns:
+            Job ID if successful, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                data = job.to_dict()
+
+                # Remove id if present (auto-increment)
+                data.pop('id', None)
+
+                columns = ', '.join(data.keys())
+                placeholders = ', '.join('?' * len(data))
+
+                cursor.execute(
+                    f"""
+                    INSERT OR IGNORE INTO job_postings ({columns})
+                    VALUES ({placeholders})
+                    """,
+                    list(data.values())
+                )
+
+                # Also save to legacy sent_posts table
+                self.save_sent_post(job.url)
+
+                return cursor.lastrowid if cursor.rowcount > 0 else None
+        except Exception as e:
+            print(f"Error saving job: {e}")
+            return None
+
+    def get_job_by_url(self, url: str) -> Optional[JobPosting]:
+        """Get job posting by URL.
+
+        Args:
+            url: Job URL
+
+        Returns:
+            JobPosting if found, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT * FROM job_postings WHERE url = ?",
+                    (url,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return JobPosting.from_dict(dict(row))
+        except Exception as e:
+            print(f"Error getting job by URL: {e}")
+        return None
+
+    def get_recent_jobs(self, hours: int = 24, limit: int = 100) -> List[JobPosting]:
+        """Get recent job postings.
+
+        Args:
+            hours: Number of hours to look back
+            limit: Maximum number of jobs to return
+
+        Returns:
+            List of JobPosting instances
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cutoff = int((datetime.utcnow() - timedelta(hours=hours)).timestamp())
+
+                cursor.execute(
+                    """
+                    SELECT * FROM job_postings
+                    WHERE created_utc >= ? AND archived = 0
+                    ORDER BY created_utc DESC
+                    LIMIT ?
+                    """,
+                    (cutoff, limit)
+                )
+
+                return [JobPosting.from_dict(dict(row)) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error getting recent jobs: {e}")
+            return []
+
+    def mark_duplicate(self, job_url: str, original_job_id: int) -> bool:
+        """Mark job as duplicate of another job.
+
+        Args:
+            job_url: URL of duplicate job
+            original_job_id: ID of original job
+
+        Returns:
+            True if successful
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    UPDATE job_postings
+                    SET duplicate_of = ?
+                    WHERE url = ?
+                    """,
+                    (original_job_id, job_url)
+                )
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error marking duplicate: {e}")
+            return False
+
+    def find_similar_jobs(self, job: JobPosting, days: int = 7) -> List[JobPosting]:
+        """Find similar jobs posted in recent days.
+
+        Args:
+            job: JobPosting to find similar jobs for
+            days: Number of days to look back
+
+        Returns:
+            List of similar JobPosting instances
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cutoff = int((datetime.utcnow() - timedelta(days=days)).timestamp())
+
+                # Find jobs with similar company or title
+                cursor.execute(
+                    """
+                    SELECT * FROM job_postings
+                    WHERE created_utc >= ?
+                    AND url != ?
+                    AND (company_name = ? OR title LIKE ?)
+                    AND archived = 0
+                    ORDER BY created_utc DESC
+                    LIMIT 10
+                    """,
+                    (cutoff, job.url, job.company_name, f"%{job.title[:30]}%")
+                )
+
+                return [JobPosting.from_dict(dict(row)) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error finding similar jobs: {e}")
+            return []
+
+    def archive_old_jobs(self, days: int = 90) -> int:
+        """Archive jobs older than specified days.
+
+        Args:
+            days: Number of days threshold
+
+        Returns:
+            Number of jobs archived
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cutoff = int((datetime.utcnow() - timedelta(days=days)).timestamp())
+                timestamp = datetime.utcnow().isoformat()
+
+                cursor.execute(
+                    """
+                    UPDATE job_postings
+                    SET archived = 1, archived_at = ?
+                    WHERE created_utc < ? AND archived = 0
+                    """,
+                    (timestamp, cutoff)
+                )
+                return cursor.rowcount
+        except Exception as e:
+            print(f"Error archiving old jobs: {e}")
+            return 0
+
+    # ===== User Profile Operations =====
+
+    def save_user_profile(self, profile: UserProfile) -> bool:
+        """Save or update user profile.
+
+        Args:
+            profile: UserProfile instance
+
+        Returns:
+            True if successful
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                data = profile.to_dict()
+
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO user_profiles
+                    (discord_user_id, username, created_at, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (data['discord_user_id'], data['username'],
+                     data['created_at'], data['updated_at'])
+                )
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error saving user profile: {e}")
+            return False
+
+    def get_user_profile(self, discord_user_id: str) -> Optional[UserProfile]:
+        """Get user profile by Discord user ID.
+
+        Args:
+            discord_user_id: Discord user ID
+
+        Returns:
+            UserProfile if found, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT * FROM user_profiles WHERE discord_user_id = ?",
+                    (discord_user_id,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return UserProfile.from_dict(dict(row))
+        except Exception as e:
+            print(f"Error getting user profile: {e}")
+        return None
+
+    def save_user_preferences(self, prefs: UserPreferences) -> bool:
+        """Save or update user preferences.
+
+        Args:
+            prefs: UserPreferences instance
+
+        Returns:
+            True if successful
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                data = prefs.to_dict()
+
+                columns = ', '.join(data.keys())
+                placeholders = ', '.join('?' * len(data))
+
+                cursor.execute(
+                    f"""
+                    INSERT OR REPLACE INTO user_preferences ({columns})
+                    VALUES ({placeholders})
+                    """,
+                    list(data.values())
+                )
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error saving user preferences: {e}")
+            return False
+
+    def get_user_preferences(self, discord_user_id: str) -> Optional[UserPreferences]:
+        """Get user preferences.
+
+        Args:
+            discord_user_id: Discord user ID
+
+        Returns:
+            UserPreferences if found, None otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT * FROM user_preferences WHERE discord_user_id = ?",
+                    (discord_user_id,)
+                )
+                row = cursor.fetchone()
+                if row:
+                    return UserPreferences.from_dict(dict(row))
+        except Exception as e:
+            print(f"Error getting user preferences: {e}")
+        return None
+
+    def add_user_keyword(self, keyword: UserKeyword) -> bool:
+        """Add user keyword with weight.
+
+        Args:
+            keyword: UserKeyword instance
+
+        Returns:
+            True if successful
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO user_keywords
+                    (discord_user_id, keyword, weight)
+                    VALUES (?, ?, ?)
+                    """,
+                    (keyword.discord_user_id, keyword.keyword.lower(), keyword.weight)
+                )
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error adding user keyword: {e}")
+            return False
+
+    def remove_user_keyword(self, discord_user_id: str, keyword: str) -> bool:
+        """Remove user keyword.
+
+        Args:
+            discord_user_id: Discord user ID
+            keyword: Keyword to remove
+
+        Returns:
+            True if successful
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    DELETE FROM user_keywords
+                    WHERE discord_user_id = ? AND keyword = ?
+                    """,
+                    (discord_user_id, keyword.lower())
+                )
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error removing user keyword: {e}")
+            return False
+
+    def get_user_keywords(self, discord_user_id: str) -> List[UserKeyword]:
+        """Get all keywords for user.
+
+        Args:
+            discord_user_id: Discord user ID
+
+        Returns:
+            List of UserKeyword instances
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT * FROM user_keywords
+                    WHERE discord_user_id = ?
+                    ORDER BY weight DESC, keyword ASC
+                    """,
+                    (discord_user_id,)
+                )
+                return [UserKeyword.from_dict(dict(row)) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error getting user keywords: {e}")
+            return []
+
+    # ===== Interaction Tracking =====
+
+    def track_interaction(self, interaction: JobInteraction) -> bool:
+        """Track user interaction with job.
+
+        Args:
+            interaction: JobInteraction instance
+
+        Returns:
+            True if successful
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO job_interactions
+                    (job_id, discord_user_id, interaction_type, timestamp)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (interaction.job_id, interaction.discord_user_id,
+                     interaction.interaction_type, interaction.timestamp)
+                )
+                return cursor.rowcount > 0
+        except Exception as e:
+            print(f"Error tracking interaction: {e}")
+            return False
+
+    def get_user_interactions(self, discord_user_id: str, limit: int = 100) -> List[JobInteraction]:
+        """Get user's job interactions.
+
+        Args:
+            discord_user_id: Discord user ID
+            limit: Maximum number of interactions to return
+
+        Returns:
+            List of JobInteraction instances
+        """
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT * FROM job_interactions
+                    WHERE discord_user_id = ?
+                    ORDER BY timestamp DESC
+                    LIMIT ?
+                    """,
+                    (discord_user_id, limit)
+                )
+                return [JobInteraction.from_dict(dict(row)) for row in cursor.fetchall()]
+        except Exception as e:
+            print(f"Error getting user interactions: {e}")
+            return []
+
+
+# Global database instance
+_db_instance: Optional[Database] = None
+
+
+def get_database(db_path: str = "sent_posts.db") -> Database:
+    """Get global database instance.
+
+    Args:
+        db_path: Path to database file
+
+    Returns:
+        Database instance
+    """
+    global _db_instance
+    if _db_instance is None:
+        _db_instance = Database(db_path)
+    return _db_instance
+
+
+# Legacy functions for backward compatibility
+def create_connection():
+    """Legacy: Create database connection."""
+    return get_database().get_connection()
+
+
+def initialize_database():
+    """Legacy: Initialize database."""
+    get_database().initialize_database()
+
+
+def load_sent_posts() -> set:
+    """Legacy: Load sent posts."""
+    return get_database().load_sent_posts()
+
+
+def save_sent_post(url: str):
+    """Legacy: Save sent post."""
+    get_database().save_sent_post(url)

@@ -122,3 +122,10 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Project specific
+sent_posts.db
+sent_posts.db-journal
+logs/
+*.db
+*.db-journal

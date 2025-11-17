@@ -1,5 +1,14 @@
-praw==7.7.1
-discord==2.3.2
+# Core dependencies
 asyncpraw==7.7.1
+discord.py==2.3.2
 python-dotenv==1.0.1
+aiohttp==3.9.1
+
+# Logging
 loguru==0.7.2
+
+# Configuration
+pyyaml==6.0.1
+
+# Legacy (keep for now, may remove later)
+praw==7.7.1

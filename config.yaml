@@ -1,0 +1,181 @@
+# Configuration file for Reddit Job Scraper Bot
+
+# Scraping settings
+scraping:
+  check_frequency_seconds: 60  # How often to check for new jobs
+  post_limit: 100  # Number of posts to fetch per check
+  age_filter_hours: 24  # Ignore posts older than this (0 = no limit)
+
+# Reddit configuration
+reddit:
+  subreddits:
+    - forhire
+    - jobbit
+    - jobopenings
+    - remotejs
+    - remotejobs
+    - remotepython
+    - remotejava
+    - RemoteWork
+    - techjobs
+
+  # Global keywords (used if user hasn't set custom keywords)
+  global_keywords:
+    - python
+    - javascript
+    - java
+    - "c++"
+    - "c#"
+    - developer
+    - software
+    - react
+    - angular
+    - vue
+    - node
+    - django
+    - flask
+    - fastapi
+    - "machine learning"
+    - "data science"
+    - aws
+    - azure
+    - gcp
+    - docker
+    - kubernetes
+    - devops
+    - backend
+    - frontend
+    - fullstack
+    - mobile
+    - ios
+    - android
+    - rust
+    - go
+    - golang
+    - typescript
+    - postgresql
+    - mysql
+    - mongodb
+    - redis
+    - graphql
+    - rest
+    - api
+    - microservices
+    - cloud
+    - terraform
+    - ansible
+    - ci/cd
+    - jenkins
+    - github actions
+    - gitlab
+    - agile
+    - scrum
+    - remote
+    - work from home
+    - distributed
+    - startup
+    - saas
+    - fintech
+    - blockchain
+
+# Rate limiting (requests per minute)
+rate_limits:
+  reddit: 60
+  hackernews: 30
+  indeed: 10
+  linkedin: 5
+  company_monitor: 20
+
+# Notification settings
+notifications:
+  default_mode: instant  # instant, digest, or dm
+  max_per_hour: 50  # Maximum notifications per hour to prevent spam
+  digest_frequency_hours: 24  # For digest mode
+
+# Analytics settings
+analytics:
+  retention_days: 365  # How long to keep job data (0 = forever)
+  aggregation_frequency_hours: 24  # How often to aggregate statistics
+  archive_after_days: 90  # Archive jobs older than this
+
+# Logging settings
+logging:
+  level: INFO  # DEBUG, INFO, WARNING, ERROR
+  file: logs/redbot.log
+  rotation: 10 MB
+  retention: 30 days
+  compression: zip
+
+# Health monitoring
+health:
+  heartbeat_interval_seconds: 300  # 5 minutes
+  alert_threshold_minutes: 15  # Alert if source down for this long
+
+# Database settings
+database:
+  path: sent_posts.db
+  backup_enabled: true
+  backup_frequency_hours: 24
+
+# Multi-platform settings
+platforms:
+  hackernews:
+    enabled: false  # Enable Hacker News scraping
+    check_frequency_hours: 1
+
+  indeed:
+    enabled: false  # Enable Indeed scraping
+    keywords:
+      - python developer
+      - javascript developer
+      - full stack developer
+    locations:
+      - Remote
+      - United States
+
+  company_monitor:
+    enabled: false  # Enable company career page monitoring
+    check_frequency_hours: 24
+
+# ML/AI settings
+machine_learning:
+  enabled: false  # Enable ML-based job matching
+  min_interactions: 20  # Minimum interactions before training model
+  retrain_frequency_hours: 168  # Weekly retraining
+
+# Parsers settings
+parsers:
+  salary:
+    currencies:
+      - USD
+      - EUR
+      - GBP
+      - CAD
+      - AUD
+    normalize_to_annual: true  # Convert hourly/monthly to annual
+
+  sentiment:
+    red_flag_keywords:
+      - unpaid
+      - no salary
+      - work for equity
+      - exposure
+      - unlimited overtime
+      - wear many hats
+      - fast paced startup
+      - rockstar
+      - ninja
+      - guru
+      - unicorn
+      - family atmosphere
+      - pizza parties
+      - must be passionate
+
+  experience:
+    levels:
+      - junior
+      - mid
+      - senior
+      - lead
+      - principal
+      - staff

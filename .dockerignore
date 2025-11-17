@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Logs and databases
+logs/
+*.log
+sent_posts.db
+
+# Documentation
+README.md
+ARCHITECTURE.md
+*.md
+
+# Tests
+tests/
+*.pytest_cache/
+
+# Environment variables (.env should not be in repo, only .env.example)
+.env
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
