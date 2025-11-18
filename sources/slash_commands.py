@@ -165,4 +165,4 @@ class SlashCommands:
 
             await interaction.followup.send("✓ Channel info displayed above", ephemeral=True)
 
-        logger.info("Slash commands registered")
+        logger.info(f"Slash commands registered: {len(tree._commands)} commands in tree")

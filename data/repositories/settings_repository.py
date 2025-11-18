@@ -19,12 +19,13 @@ class SettingsRepository(BaseRepository):
         Returns:
             Setting value or default
         """
-        cursor = self.db.execute(
-            "SELECT value FROM bot_settings WHERE key = ?",
-            (key,)
-        )
-        row = cursor.fetchone()
-        return row[0] if row else default
+        with self.get_connection() as conn:
+            cursor = conn.execute(
+                "SELECT value FROM bot_settings WHERE key = ?",
+                (key,)
+            )
+            row = cursor.fetchone()
+            return row[0] if row else default
 
     def set(self, key: str, value: str, updated_by: Optional[str] = None) -> bool:
         """Set a setting value.
@@ -38,14 +39,14 @@ class SettingsRepository(BaseRepository):
             True if successful
         """
         try:
-            self.db.execute(
-                """
-                INSERT OR REPLACE INTO bot_settings (key, value, updated_at, updated_by)
-                VALUES (?, ?, ?, ?)
-                """,
-                (key, value, datetime.utcnow().isoformat(), updated_by)
-            )
-            self.db.commit()
+            with self.get_connection() as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO bot_settings (key, value, updated_at, updated_by)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (key, value, datetime.utcnow().isoformat(), updated_by)
+                )
             return True
         except Exception as e:
             logger.error(f"Error setting {key}: {e}")
@@ -79,8 +80,8 @@ class SettingsRepository(BaseRepository):
             True if successful
         """
         try:
-            self.db.execute("DELETE FROM bot_settings WHERE key = ?", (key,))
-            self.db.commit()
+            with self.get_connection() as conn:
+                conn.execute("DELETE FROM bot_settings WHERE key = ?", (key,))
             return True
         except Exception as e:
             logger.error(f"Error deleting {key}: {e}")
@@ -92,5 +93,6 @@ class SettingsRepository(BaseRepository):
         Returns:
             Dictionary of all settings
         """
-        cursor = self.db.execute("SELECT key, value FROM bot_settings")
-        return {row[0]: row[1] for row in cursor.fetchall()}
+        with self.get_connection() as conn:
+            cursor = conn.execute("SELECT key, value FROM bot_settings")
+            return {row[0]: row[1] for row in cursor.fetchall()}
