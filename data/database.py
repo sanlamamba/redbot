@@ -2,19 +2,21 @@
 from typing import Optional, Set
 
 from .repositories import JobRepository
+from .repositories.settings_repository import SettingsRepository
 
 
 class Database:
-    """Database facade providing convenient access to job repository."""
+    """Database facade providing convenient access to repositories."""
 
     def __init__(self, db_path: str = "sent_posts.db"):
-        """Initialize database with job repository.
+        """Initialize database with repositories.
 
         Args:
             db_path: Path to SQLite database file
         """
         self.db_path = db_path
         self.jobs = JobRepository(db_path)
+        self.settings = SettingsRepository(db_path)
 
     def initialize_database(self):
         """Initialize database with legacy sent_posts table.

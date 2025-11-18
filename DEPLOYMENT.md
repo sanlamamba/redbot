@@ -37,9 +37,16 @@ Complete step-by-step guide for deploying the Multi-Source Job Scraper Bot.
    - ✅ Read Message History
 10. Copy generated URL and open in browser to invite bot to your server
 
-#### Discord Channel ID
+#### Discord Channel ID (Optional - Can be Set Later)
+
+**Option 1: Set via Discord command** (Recommended)
+- After starting the bot, use `!setchannel #channel` command in Discord
+- This method allows changing channels without restarting the bot
+
+**Option 2: Set in .env file**
 1. Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode)
 2. Right-click your target channel → "Copy ID"
+3. Add to `.env`: `DISCORD_CHANNEL_ID=your_channel_id`
 
 ### 2. Configure Environment
 
@@ -54,7 +61,9 @@ REDDIT_CLIENT_ID=your_client_id_from_step_1
 REDDIT_CLIENT_SECRET=your_client_secret_from_step_1
 REDDIT_USER_AGENT=JobBot/1.0 by YourRedditUsername
 DISCORD_TOKEN=your_discord_bot_token
-DISCORD_CHANNEL_ID=your_channel_id_from_above
+
+# Optional: Set channel here, or use !setchannel command after bot starts
+# DISCORD_CHANNEL_ID=your_channel_id
 ```
 
 ### 3. Configure Sources (Optional)
@@ -106,11 +115,16 @@ Fix any issues reported before proceeding.
    ```bash
    docker-compose up -d
    ```
-4. View logs:
+4. Set job posting channel in Discord:
+   ```
+   !setchannel #jobs-channel
+   ```
+   (Skip if you set `DISCORD_CHANNEL_ID` in `.env`)
+5. View logs:
    ```bash
    docker-compose logs -f
    ```
-5. Stop bot:
+6. Stop bot:
    ```bash
    docker-compose down
    ```
@@ -156,6 +170,12 @@ docker-compose up -d --build
    ```bash
    python main.py
    ```
+
+6. In Discord, set the job posting channel:
+   ```
+   !setchannel #jobs-channel
+   ```
+   (Skip if you set `DISCORD_CHANNEL_ID` in `.env`)
 
 **Running in background (Linux/Mac):**
 ```bash

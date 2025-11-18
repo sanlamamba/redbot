@@ -6,6 +6,7 @@ from .stats import handle_stats
 from .search import handle_search
 from .trends import handle_trends
 from .export import handle_export
+from .channel import handle_setchannel, handle_getchannel
 
 
 class CommandHandler:
@@ -22,6 +23,8 @@ class CommandHandler:
             description="Here are the commands you can use:",
             color=discord.Color.blue()
         )
+
+        # Analytics commands
         embed.add_field(name="!help", value="Show this help message", inline=False)
         embed.add_field(
             name="!stats",
@@ -39,6 +42,19 @@ class CommandHandler:
             inline=False
         )
         embed.add_field(name="!export", value="Export last 100 jobs to CSV file", inline=False)
+
+        # Admin commands
+        embed.add_field(
+            name="!setchannel [#channel]",
+            value="🔧 **[Admin]** Set job posting channel (defaults to current channel)",
+            inline=False
+        )
+        embed.add_field(
+            name="!getchannel",
+            value="Show current job posting channel",
+            inline=False
+        )
+
         await message.channel.send(embed=embed)
 
     async def handle_stats(self, message: discord.Message) -> None:
@@ -52,3 +68,9 @@ class CommandHandler:
 
     async def handle_export(self, message: discord.Message) -> None:
         await handle_export(message)
+
+    async def handle_setchannel(self, bot, message: discord.Message, args: str) -> None:
+        await handle_setchannel(bot, message, args)
+
+    async def handle_getchannel(self, bot, message: discord.Message) -> None:
+        await handle_getchannel(bot, message)

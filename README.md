@@ -62,6 +62,8 @@ Once the bot is running, use these commands in your Discord channel:
 - **`!trends keywords`** - Most in-demand skills (last 30 days)
 - **`!trends subreddits`** - Most active subreddits (last 30 days)
 - **`!export`** - Export last 100 jobs to CSV file
+- **`!setchannel [#channel]`** - 🔧 **[Admin]** Set job posting channel
+- **`!getchannel`** - Show current job posting channel
 
 ## Quick Start
 
@@ -108,6 +110,12 @@ docker-compose up -d
 docker-compose logs -f  # View logs
 ```
 
+4. Set job posting channel in Discord:
+```
+!setchannel #jobs-channel
+```
+Or set `DISCORD_CHANNEL_ID` in `.env` before starting the bot.
+
 ### Option B: Local Python
 
 1. Install dependencies:
@@ -121,13 +129,18 @@ REDDIT_CLIENT_ID=your_reddit_client_id
 REDDIT_CLIENT_SECRET=your_reddit_client_secret
 REDDIT_USER_AGENT=your_user_agent
 DISCORD_TOKEN=your_discord_token
-DISCORD_CHANNEL_ID=your_channel_id
+# DISCORD_CHANNEL_ID=your_channel_id  # Optional: or use !setchannel command
 ```
 
 3. Run migrations and start:
 ```bash
 python scripts/migrate_db.py
 python main.py
+```
+
+4. In Discord, set the job posting channel:
+```
+!setchannel #jobs-channel
 ```
 
 ## Configuration

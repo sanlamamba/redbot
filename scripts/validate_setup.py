@@ -38,9 +38,12 @@ def validate_env_file() -> bool:
         "REDDIT_CLIENT_ID",
         "REDDIT_CLIENT_SECRET",
         "REDDIT_USER_AGENT",
-        "DISCORD_TOKEN",
-        "DISCORD_CHANNEL_ID"
+        "DISCORD_TOKEN"
     ]
+
+    optional_vars = {
+        "DISCORD_CHANNEL_ID": "Can be set via !setchannel command"
+    }
 
     missing = []
     for var in required_vars:
@@ -50,6 +53,14 @@ def validate_env_file() -> bool:
             print(f"  {RED}✗{RESET} {var} not configured")
         else:
             print(f"  {GREEN}✓{RESET} {var} configured")
+
+    # Check optional variables
+    for var, description in optional_vars.items():
+        value = os.getenv(var)
+        if value and not value.startswith("your_"):
+            print(f"  {GREEN}✓{RESET} {var} configured (optional)")
+        else:
+            print(f"  {YELLOW}ℹ{RESET} {var} not set - {description}")
 
     if missing:
         print(f"\n  {YELLOW}Missing variables:{RESET} {', '.join(missing)}")

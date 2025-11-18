@@ -8,7 +8,7 @@ import asyncio
 from datetime import datetime
 import discord
 
-from utils.constants import DISCORD_CHANNEL_ID, CHECK_FREQUENCY_SECONDS
+from utils.constants import CHECK_FREQUENCY_SECONDS
 from utils.logger import logger
 from data.database import save_sent_post, get_database
 from data.models.job import JobPosting
@@ -31,10 +31,15 @@ class DiscordBot(discord.Client):
         self.command_prefix = "!"
         self.command_handler = CommandHandler(self.salary_parser, self.experience_parser)
         self.job_sources = [reddit_stream]  # Will be updated by main.py
+        self.job_channel_id = None  # Will be loaded from database on ready
 
     async def bulk_delete(self) -> None:
         """Bulk delete old messages from the bot in the Discord channel."""
-        channel = self.get_channel(DISCORD_CHANNEL_ID)
+        if not self.job_channel_id:
+            logger.warning("No job channel configured, skipping bulk delete")
+            return
+
+        channel = self.get_channel(self.job_channel_id)
         if channel:
             try:
                 deleted = await channel.purge(
@@ -50,9 +55,13 @@ class DiscordBot(discord.Client):
         Args:
             job: JobPosting object with parsed data
         """
-        channel = self.get_channel(DISCORD_CHANNEL_ID)
+        if not self.job_channel_id:
+            logger.warning("No job channel configured, skipping job posting")
+            return
+
+        channel = self.get_channel(self.job_channel_id)
         if channel is None:
-            logger.error(f"Failed to get Discord channel with ID: {DISCORD_CHANNEL_ID}")
+            logger.error(f"Failed to get Discord channel with ID: {self.job_channel_id}")
             return
 
         # Determine embed color based on red flags and score
@@ -184,6 +193,10 @@ class DiscordBot(discord.Client):
                 await self.command_handler.handle_trends(message, args)
             elif command == "export":
                 await self.command_handler.handle_export(message)
+            elif command == "setchannel":
+                await self.command_handler.handle_setchannel(self, message, args)
+            elif command == "getchannel":
+                await self.command_handler.handle_getchannel(self, message)
             else:
                 await message.channel.send(f"Unknown command: `{command}`. Type `!help` for available commands.")
         except Exception as e:
@@ -193,6 +206,20 @@ class DiscordBot(discord.Client):
     async def on_ready(self) -> None:
         """Event handler for when the bot is ready."""
         logger.info(f"Logged in as {self.user.name}")
+
+        # Load job channel from database
+        db = get_database()
+        self.job_channel_id = db.settings.get_int("job_channel_id")
+
+        if self.job_channel_id:
+            channel = self.get_channel(self.job_channel_id)
+            if channel:
+                logger.info(f"Job channel configured: #{channel.name} (ID: {self.job_channel_id})")
+            else:
+                logger.warning(f"Configured channel ID {self.job_channel_id} not found or inaccessible")
+        else:
+            logger.warning("No job channel configured. Use !setchannel to set one.")
+
         await asyncio.gather(self.bulk_delete(), self.start_scraping_jobs())
 
     async def start_scraping_jobs(self) -> None:
