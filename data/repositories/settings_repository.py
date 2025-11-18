@@ -3,6 +3,7 @@
 from datetime import datetime
 from typing import Optional
 from .base_repository import BaseRepository
+from utils.logger import logger
 
 
 class SettingsRepository(BaseRepository):
@@ -47,7 +48,7 @@ class SettingsRepository(BaseRepository):
             self.db.commit()
             return True
         except Exception as e:
-            self.logger.error(f"Error setting {key}: {e}")
+            logger.error(f"Error setting {key}: {e}")
             return False
 
     def get_int(self, key: str, default: Optional[int] = None) -> Optional[int]:
@@ -82,7 +83,7 @@ class SettingsRepository(BaseRepository):
             self.db.commit()
             return True
         except Exception as e:
-            self.logger.error(f"Error deleting {key}: {e}")
+            logger.error(f"Error deleting {key}: {e}")
             return False
 
     def get_all(self) -> dict:
