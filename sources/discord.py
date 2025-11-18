@@ -117,6 +117,31 @@ class DiscordBot(discord.Client):
         if job.subreddit:
             embed.add_field(name="Subreddit", value=f"r/{job.subreddit}", inline=True)
 
+        # Add posted time with relative and absolute timestamps
+        posted_time = datetime.utcfromtimestamp(job.created_utc)
+        now = datetime.utcnow()
+        time_diff = now - posted_time
+
+        # Calculate relative time
+        if time_diff.days > 0:
+            if time_diff.days == 1:
+                relative = "1 day ago"
+            else:
+                relative = f"{time_diff.days} days ago"
+        elif time_diff.seconds >= 3600:
+            hours = time_diff.seconds // 3600
+            relative = f"{hours} hour{'s' if hours != 1 else ''} ago"
+        elif time_diff.seconds >= 60:
+            minutes = time_diff.seconds // 60
+            relative = f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+        else:
+            relative = "just now"
+
+        # Format absolute time
+        absolute = posted_time.strftime("%Y-%m-%d %H:%M UTC")
+        posted_str = f"{relative}\n({absolute})"
+        embed.add_field(name="🕒 Posted", value=posted_str, inline=True)
+
         # Add salary if detected
         if job.salary_min or job.salary_max:
             salary_info = type('obj', (object,), {
