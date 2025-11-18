@@ -233,6 +233,41 @@ pytest tests/ -v
 
 Current coverage: 16/16 salary parser tests passing
 
+## Utility Scripts
+
+### Reset Bot (Leave All Servers)
+
+Remove the bot from all servers:
+```bash
+# Show which servers the bot is in
+python scripts/reset_bot.py --show
+
+# Leave all servers (with confirmation)
+python scripts/reset_bot.py
+
+# Force leave all servers (no confirmation)
+python scripts/reset_bot.py --force
+```
+
+**Use cases:**
+- Clean up test servers
+- Reset bot to initial state
+- Remove from unwanted servers
+
+### Validate Setup
+
+Check configuration before deploying:
+```bash
+python scripts/validate_setup.py
+```
+
+Checks:
+- Environment variables (Reddit, Discord credentials)
+- Config file validity
+- Database connectivity
+- Python dependencies
+- Channel configuration
+
 ## Design Patterns
 
 - **Repository Pattern** - Clean data access layer

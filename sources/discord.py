@@ -205,7 +205,28 @@ class DiscordBot(discord.Client):
 
     async def on_ready(self) -> None:
         """Event handler for when the bot is ready."""
-        logger.info(f"Logged in as {self.user.name}")
+        logger.info("="*70)
+        logger.info(f"Bot connected as: {self.user.name} (ID: {self.user.id})")
+        logger.info("="*70)
+
+        # Show server information
+        guild_count = len(self.guilds)
+        if guild_count == 0:
+            logger.warning("Bot is not in any servers yet!")
+            logger.warning("Invite the bot to a server to get started.")
+        else:
+            logger.info(f"Active in {guild_count} server(s):")
+            for i, guild in enumerate(self.guilds, 1):
+                member_count = guild.member_count
+                text_channels = len(guild.text_channels)
+                logger.info(
+                    f"  {i}. {guild.name} | "
+                    f"Members: {member_count} | "
+                    f"Channels: {text_channels} | "
+                    f"ID: {guild.id}"
+                )
+
+        logger.info("-"*70)
 
         # Load job channel from database
         db = get_database()
@@ -214,11 +235,22 @@ class DiscordBot(discord.Client):
         if self.job_channel_id:
             channel = self.get_channel(self.job_channel_id)
             if channel:
-                logger.info(f"Job channel configured: #{channel.name} (ID: {self.job_channel_id})")
+                logger.info(f"✓ Job channel: #{channel.name} (ID: {self.job_channel_id})")
             else:
-                logger.warning(f"Configured channel ID {self.job_channel_id} not found or inaccessible")
+                logger.warning(f"⚠ Configured channel ID {self.job_channel_id} not found or inaccessible")
+                logger.warning("  Use !setchannel to reconfigure")
         else:
-            logger.warning("No job channel configured. Use !setchannel to set one.")
+            logger.warning("⚠ No job channel configured")
+            logger.warning("  Use !setchannel #channel-name to set one")
+
+        # Show enabled job sources
+        source_names = [s.__class__.__name__.replace("Stream", "").replace("Monitor", "")
+                       for s in self.job_sources]
+        logger.info(f"Job sources enabled: {', '.join(source_names)}")
+
+        logger.info("="*70)
+        logger.info("Bot ready! Monitoring for jobs...")
+        logger.info("="*70)
 
         await asyncio.gather(self.bulk_delete(), self.start_scraping_jobs())
 
