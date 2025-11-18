@@ -7,6 +7,7 @@ to send new Reddit submissions to a specified Discord channel.
 import asyncio
 from datetime import datetime
 import discord
+from discord import app_commands
 
 from utils.constants import CHECK_FREQUENCY_SECONDS
 from utils.logger import logger
@@ -15,6 +16,7 @@ from data.models.job import JobPosting
 from parsers import SalaryParser, ExperienceParser, SentimentAnalyzer
 from .reddit import RedditStream
 from .commands import CommandHandler
+from .slash_commands import SlashCommands
 
 
 class DiscordBot(discord.Client):
@@ -32,6 +34,11 @@ class DiscordBot(discord.Client):
         self.command_handler = CommandHandler(self.salary_parser, self.experience_parser)
         self.job_sources = [reddit_stream]  # Will be updated by main.py
         self.job_channel_id = None  # Will be loaded from database on ready
+
+        # Set up slash commands
+        self.tree = app_commands.CommandTree(self)
+        self.slash_commands = SlashCommands(self, self.command_handler)
+        self.slash_commands.register_commands(self.tree)
 
     async def bulk_delete(self) -> None:
         """Bulk delete old messages from the bot in the Discord channel."""
@@ -247,6 +254,17 @@ class DiscordBot(discord.Client):
         source_names = [s.__class__.__name__.replace("Stream", "").replace("Monitor", "")
                        for s in self.job_sources]
         logger.info(f"Job sources enabled: {', '.join(source_names)}")
+
+        # Sync slash commands
+        logger.info("-"*70)
+        logger.info("Syncing slash commands...")
+        try:
+            synced = await self.tree.sync()
+            logger.info(f"✓ Synced {len(synced)} slash command(s)")
+            logger.info("  Commands available as /help, /stats, /search, etc.")
+        except Exception as e:
+            logger.error(f"⚠ Failed to sync slash commands: {e}")
+            logger.warning("  Text commands (!help) will still work")
 
         logger.info("="*70)
         logger.info("Bot ready! Monitoring for jobs...")

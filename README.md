@@ -53,7 +53,9 @@ For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Discord Commands
 
-Once the bot is running, use these commands in your Discord channel:
+The bot supports **both** text commands (`!command`) and slash commands (`/command`).
+
+### Text Commands (Traditional)
 
 - **`!help`** - Show all available commands
 - **`!stats`** - Today's statistics (last 24 hours)
@@ -64,6 +66,20 @@ Once the bot is running, use these commands in your Discord channel:
 - **`!export`** - Export last 100 jobs to CSV file
 - **`!setchannel [#channel]`** - 🔧 **[Admin]** Set job posting channel
 - **`!getchannel`** - Show current job posting channel
+
+### Slash Commands (Modern)
+
+All commands are also available as slash commands with autocomplete:
+
+- **`/help`** - Show all available commands
+- **`/stats`** - Today's job statistics
+- **`/search <keyword>`** - Search with autocomplete
+- **`/trends <type>`** - Select from: salary, keywords, subreddits
+- **`/export`** - Export to CSV
+- **`/setchannel [#channel]`** - 🔧 **[Admin]** Set channel with autocomplete
+- **`/getchannel`** - Show current channel
+
+> **Tip**: Slash commands provide autocomplete, validation, and better UX!
 
 ## Quick Start
 

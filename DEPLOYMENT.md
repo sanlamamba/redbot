@@ -30,12 +30,15 @@ Complete step-by-step guide for deploying the Multi-Source Job Scraper Bot.
 7. Go to "OAuth2" → "URL Generator"
 8. Select scopes:
    - ✅ bot
+   - ✅ applications.commands (for slash commands)
 9. Select permissions:
    - ✅ Send Messages
    - ✅ Embed Links
    - ✅ Attach Files
    - ✅ Read Message History
 10. Copy generated URL and open in browser to invite bot to your server
+
+> **Note**: The `applications.commands` scope enables slash commands (`/help`, `/stats`, etc.) in addition to text commands (`!help`, `!stats`, etc.)
 
 #### Discord Channel ID (Optional - Can be Set Later)
 
