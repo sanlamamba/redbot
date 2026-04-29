@@ -21,6 +21,7 @@ class HackerNewsStream:
         self.db = get_database()
         self.processed_ids = set()  # Track processed comment IDs
         self.age_filter_hours = get_config("scraping.age_filter_hours", 24)
+        self.comment_limit = get_config("platforms.hackernews.comment_limit", 500)
 
     async def find_latest_hiring_thread(self) -> Optional[int]:
         """Find the latest 'Who is hiring?' thread ID.
@@ -90,7 +91,7 @@ class HackerNewsStream:
             return []
 
         # Fetch all comments (limited to avoid overload)
-        comment_ids = story["kids"][:500]  # Limit to first 500 comments
+        comment_ids = story["kids"][:self.comment_limit]
         logger.info(f"Fetching {len(comment_ids)} comments from HN thread {story_id}")
 
         comments = []
@@ -128,6 +129,12 @@ class HackerNewsStream:
             # Create URL to comment
             comment_id = comment.get("id")
             url = f"https://news.ycombinator.com/item?id={comment_id}"
+
+            # Apply age filter
+            created_time = comment.get("time", 0)
+            age_cutoff = datetime.utcnow() - timedelta(hours=self.age_filter_hours)
+            if datetime.utcfromtimestamp(created_time) < age_cutoff:
+                return None
 
             # Check if already processed
             existing = self.db.jobs.get_by_url(url)
@@ -173,9 +180,9 @@ class HackerNewsStream:
             # Convert to JobPosting objects
             jobs = []
             for comment in comments:
-                # Skip if already processed
+                # Skip if already processed (use str IDs consistently)
                 comment_id = comment.get("id")
-                if comment_id in self.processed_ids:
+                if str(comment_id) in self.processed_ids:
                     continue
 
                 job = self.comment_to_job_posting(comment)
@@ -183,7 +190,7 @@ class HackerNewsStream:
                     # Process through job processor (salary, experience, etc.)
                     processed_job = self.job_processor.process(job)
                     jobs.append(processed_job)
-                    self.processed_ids.add(comment_id)
+                    self.processed_ids.add(str(comment_id))
 
             logger.info(f"Processed {len(jobs)} new HN job postings")
             return jobs

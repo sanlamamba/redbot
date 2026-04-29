@@ -139,6 +139,27 @@ class TestSalaryParser:
         assert result.min == 50000
         assert result.max == 65000
 
+    def test_decimal_k_notation(self):
+        """Regression: 50.5k must be 50500, not 505000."""
+        result = self.parser.parse("Salary: $50.5k")
+        assert result is not None
+        assert result.min == 50500
+        assert result.max == 50500
+
+    def test_mixed_range_k_and_comma(self):
+        """Regression: $50k-$80,500 — only the k-suffixed token multiplied."""
+        result = self.parser.parse("$50k-$80,500")
+        assert result is not None
+        assert result.min == 50000
+        assert result.max == 80500
+
+    def test_comma_formatted_no_k(self):
+        """Regression: $80,500 must not be multiplied by 1000."""
+        result = self.parser.parse("Salary: $80,500 per year")
+        assert result is not None
+        assert result.min == 80500
+        assert result.max == 80500
+
 
 def run_tests():
     """Run all tests manually (without pytest)."""

@@ -2,6 +2,7 @@
 import re
 from typing import Optional
 from dataclasses import dataclass
+from utils.config import get_config
 from .data.salary_patterns import CURRENCIES, SALARY_PATTERNS, PERIOD_KEYWORDS
 
 
@@ -24,6 +25,9 @@ class SalaryParser:
         self.currencies = CURRENCIES
         self.period_keywords = PERIOD_KEYWORDS
         self.compiled_patterns = [re.compile(p, re.IGNORECASE) for p in SALARY_PATTERNS]
+        self.min_valid_annual = get_config("parsers.salary.min_valid_annual", 10000)
+        self.max_valid_annual = get_config("parsers.salary.max_valid_annual", 1000000)
+        self.hours_per_week = get_config("parsers.salary.hours_per_week", 40)
 
     def parse(self, text: str) -> Optional[SalaryInfo]:
         """Parse salary information from text.
@@ -74,18 +78,45 @@ class SalaryParser:
                     salary_info.currency = g.upper()
                     break
 
-        # Extract amounts
+        # Extract amounts — use 1-based group indices for per-token k-suffix detection
+        match_str = match.group(0).lower()
         amounts = []
-        for g in groups:
-            if g and g not in self.currencies and not g.upper() in self.currencies:
-                # Clean and parse number
-                cleaned = g.replace(',', '').replace('.', '')
-                if cleaned.isdigit():
-                    amount = int(cleaned)
-                    # If ends with 'k', multiply by 1000
-                    if 'k' in match.group(0).lower():
-                        amount *= 1000
-                    amounts.append(amount)
+
+        # Detect a trailing 'k' that applies to all numbers in a shorthand range
+        # (e.g. "€60-80k" or "50-70k USD" where the k is shared, not per-token).
+        # Find where the last numeric group ends in the match string.
+        last_num_end = 0
+        for group_idx, g in enumerate(groups, start=1):
+            if g and g not in self.currencies and g.upper() not in self.currencies:
+                last_num_end = max(last_num_end, match.end(group_idx) - match.start())
+        # A trailing 'k' exists if the next non-space character after all numbers is 'k'.
+        has_trailing_k = False
+        for ch in match_str[last_num_end:]:
+            if ch == 'k':
+                has_trailing_k = True
+                break
+            if ch.isdigit():
+                break  # another digit before k — not a shared trailing k
+
+        for group_idx, g in enumerate(groups, start=1):
+            if not g:
+                continue
+            if g in self.currencies or g.upper() in self.currencies:
+                continue
+            # Strip commas (thousand separators only) — preserve decimal points
+            cleaned = g.replace(',', '')
+            try:
+                amount = float(cleaned)
+            except ValueError:
+                continue
+            # Per-token: check if the character immediately after this group is 'k'
+            pos_after = match.end(group_idx) - match.start()
+            has_own_k = pos_after < len(match_str) and match_str[pos_after] == 'k'
+            # Apply ×1000 if: this token has its own k, OR a trailing k is shared
+            # and the token is not comma-formatted (comma means already full dollars).
+            if has_own_k or (has_trailing_k and ',' not in g):
+                amount *= 1000
+            amounts.append(int(amount))
 
         if len(amounts) == 1:
             # Single value
@@ -151,8 +182,7 @@ class SalaryParser:
         multiplier = 1
 
         if salary_info.period == 'hourly':
-            # Assume 40 hours/week, 52 weeks/year
-            multiplier = 40 * 52
+            multiplier = self.hours_per_week * 52
         elif salary_info.period == 'monthly':
             multiplier = 12
 
@@ -177,11 +207,11 @@ class SalaryParser:
         if not salary_info.min and not salary_info.max:
             return False
 
-        # Reasonable salary range (10k to 1M annually)
+        # Reasonable salary range (configurable bounds)
         min_val = salary_info.min or salary_info.max
         max_val = salary_info.max or salary_info.min
 
-        if min_val < 10000 or max_val > 1000000:
+        if min_val < self.min_valid_annual or max_val > self.max_valid_annual:
             return False
 
         # Max must be >= min

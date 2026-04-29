@@ -33,6 +33,7 @@ class RedditStream:
         )
         self.sent_posts = load_sent_posts()
         self.age_filter_hours = get_config("scraping.age_filter_hours", 24)
+        self.exclusion_terms = get_config("scraping.exclusion_terms", ["for hire"])
         self.job_processor = get_job_processor()
 
     async def get_submissions(self) -> list:
@@ -63,37 +64,42 @@ class RedditStream:
                     keyword in post_title or keyword in post_text
                     for keyword in KEYWORDS
                 )
-                and "for hire" not in post_title
+                and not any(term in post_title for term in self.exclusion_terms)
             ):
                 if post_url not in self.sent_posts:
                     # Convert to JobPosting and process
                     job = self._create_job_posting(submission)
-                    processed_job = self.job_processor.process(job)
-                    submissions.append(processed_job)
+                    if job:
+                        processed_job = self.job_processor.process(job)
+                        submissions.append(processed_job)
 
         logger.info(f"Found {len(submissions)} new posts in the subreddits.")
         return submissions
 
-    def _create_job_posting(self, submission) -> JobPosting:
+    def _create_job_posting(self, submission) -> JobPosting | None:
         """Convert Reddit submission to JobPosting.
 
         Args:
             submission: asyncpraw Submission object
 
         Returns:
-            JobPosting instance
+            JobPosting instance, or None if conversion fails
         """
-        return JobPosting(
-            url=submission.url,
-            title=submission.title,
-            description=submission.selftext,
-            subreddit=submission.subreddit.display_name,
-            author=submission.author.name if submission.author else "[deleted]",
-            created_utc=int(submission.created_utc),
-            discovered_at=datetime.utcnow().isoformat(),
-            source="reddit",
-            source_id=submission.id
-        )
+        try:
+            return JobPosting(
+                url=submission.url,
+                title=submission.title,
+                description=submission.selftext,
+                subreddit=getattr(submission.subreddit, 'display_name', 'unknown'),
+                author=submission.author.name if submission.author else "[deleted]",
+                created_utc=int(submission.created_utc),
+                discovered_at=datetime.utcnow().isoformat(),
+                source="reddit",
+                source_id=submission.id
+            )
+        except Exception as e:
+            logger.error(f"Failed to create JobPosting from Reddit submission: {e}")
+            return None
 
     def add_sent_post(self, url: str) -> None:
         """Add a sent post URL to the sent_posts set.

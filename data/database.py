@@ -1,6 +1,7 @@
 """Database facade - provides backward compatibility and convenient access to repositories."""
 from typing import Optional, Set
 
+from utils.logger import logger
 from .repositories import JobRepository
 from .repositories.settings_repository import SettingsRepository
 
@@ -51,7 +52,7 @@ class Database:
                 cursor.execute("SELECT url FROM sent_posts")
                 sent_posts = {row[0] for row in cursor.fetchall()}
         except Exception as e:
-            print(f"Error loading sent posts: {e}")
+            logger.error(f"Error loading sent posts: {e}")
 
         return sent_posts
 
@@ -75,7 +76,7 @@ class Database:
                     (url, datetime.utcnow().isoformat()),
                 )
         except Exception as e:
-            print(f"Error saving sent post: {e}")
+            logger.error(f"Error saving sent post: {e}")
 
 
 # Global database instance
