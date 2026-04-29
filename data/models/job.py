@@ -41,6 +41,9 @@ class JobPosting:
     sentiment_score: Optional[float] = None
     red_flags: List[str] = field(default_factory=list)
 
+    # Cross-source deduplication
+    content_hash: Optional[str] = None  # sha256(company|title|source)[:16]
+
     # Archival
     archived: bool = False
     archived_at: Optional[str] = None

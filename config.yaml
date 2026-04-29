@@ -139,6 +139,18 @@ platforms:
   company_monitor:
     enabled: false  # Enable company career page monitoring
     check_frequency_hours: 24
+    # Per-company config. ats_type: greenhouse | lever | static
+    companies: []
+    # Example entries (uncomment and fill in):
+    # - name: "Acme Corp"
+    #   ats_type: greenhouse
+    #   slug: acme-corp          # Greenhouse board slug
+    # - name: "Widget Inc"
+    #   ats_type: lever
+    #   slug: widget-inc         # Lever company slug
+    # - name: "Legacy Co"
+    #   ats_type: static
+    #   url: https://careers.legacy.co/jobs
 
 # ML/AI settings
 machine_learning:

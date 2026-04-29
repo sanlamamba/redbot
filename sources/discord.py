@@ -5,7 +5,6 @@ to send new Reddit submissions to a specified Discord channel.
 """
 
 import asyncio
-from datetime import datetime
 import discord
 from discord import app_commands
 
@@ -19,6 +18,7 @@ from .reddit import RedditStream
 from .command_context import CommandContext
 from .commands import CommandHandler
 from .slash_commands import SlashCommands
+from .embed_builder import EmbedBuilder
 
 
 class DiscordBot(discord.Client):
@@ -32,6 +32,9 @@ class DiscordBot(discord.Client):
         self.salary_parser = SalaryParser()
         self.experience_parser = ExperienceParser()
         self.sentiment_analyzer = SentimentAnalyzer()
+        self.embed_builder = EmbedBuilder(
+            self.salary_parser, self.experience_parser, self.sentiment_analyzer
+        )
         self.command_prefix = "!"
         self.command_handler = CommandHandler(self.salary_parser, self.experience_parser)
         self.job_sources = [reddit_stream]  # Will be updated by main.py
@@ -78,115 +81,7 @@ class DiscordBot(discord.Client):
             logger.error(f"Failed to get Discord channel with ID: {self.job_channel_id}")
             return
 
-        # Determine embed color based on red flags and score
-        if job.red_flags and len(job.red_flags) >= 3:
-            color = discord.Color.red()  # Suspicious
-        elif job.red_flags:
-            color = discord.Color.orange()  # Some concerns
-        elif job.salary_min and job.salary_min > 100000:
-            color = discord.Color.gold()  # High salary
-        else:
-            color = discord.Color.blue()  # Normal
-
-        # Create title with experience level icon
-        title = job.title[:200]
-        if job.experience_level:
-            icon = self.experience_parser.get_icon(job.experience_level.split(",")[0].strip())
-            title = f"{icon} {title}" if icon else title
-
-        # Create description
-        description = (
-            job.description[:300] + "..."
-            if job.description and len(job.description) > 300
-            else job.description or "No description provided"
-        )
-
-        # Add red flag warning to description
-        if job.red_flags:
-            warnings = self.sentiment_analyzer.format_warnings(
-                {"red_flags": job.red_flags, "warnings": []}
-            )
-            if warnings:
-                description = f"⚠️ **{warnings}**\n\n{description}"
-
-        # Create embed
-        embed = discord.Embed(
-            title=title,
-            url=job.url,
-            description=description,
-            color=color,
-            timestamp=datetime.utcfromtimestamp(job.created_utc),
-        )
-
-        # Add author and subreddit
-        if job.author:
-            embed.set_author(name=job.author)
-        if job.subreddit:
-            embed.add_field(name="Subreddit", value=f"r/{job.subreddit}", inline=True)
-
-        # Add posted time with relative and absolute timestamps
-        posted_time = datetime.utcfromtimestamp(job.created_utc)
-        now = datetime.utcnow()
-        time_diff = now - posted_time
-
-        # Calculate relative time
-        if time_diff.days > 0:
-            if time_diff.days == 1:
-                relative = "1 day ago"
-            else:
-                relative = f"{time_diff.days} days ago"
-        elif time_diff.seconds >= 3600:
-            hours = time_diff.seconds // 3600
-            relative = f"{hours} hour{'s' if hours != 1 else ''} ago"
-        elif time_diff.seconds >= 60:
-            minutes = time_diff.seconds // 60
-            relative = f"{minutes} minute{'s' if minutes != 1 else ''} ago"
-        else:
-            relative = "just now"
-
-        # Format absolute time
-        absolute = posted_time.strftime("%Y-%m-%d %H:%M UTC")
-        posted_str = f"{relative}\n({absolute})"
-        embed.add_field(name="🕒 Posted", value=posted_str, inline=True)
-
-        # Add salary if detected
-        if job.salary_min or job.salary_max:
-            salary_info = type('obj', (object,), {
-                'min': job.salary_min,
-                'max': job.salary_max,
-                'currency': job.salary_currency or 'USD',
-                'period': job.salary_period or 'yearly'
-            })()
-            salary_str = self.salary_parser.format_salary(salary_info)
-            embed.add_field(name="💰 Salary", value=salary_str, inline=True)
-
-        # Add experience level if detected
-        if job.experience_level:
-            levels = job.experience_level.split(", ")
-            formatted = self.experience_parser.format_levels(levels)
-            embed.add_field(name="📊 Level", value=formatted or job.experience_level, inline=True)
-
-        # Add location/remote status
-        if job.location or job.is_remote:
-            location_str = job.location or ""
-            if job.is_remote:
-                location_str = "🌍 Remote" + (f" ({location_str})" if location_str else "")
-            if location_str:
-                embed.add_field(name="📍 Location", value=location_str, inline=True)
-
-        # Add top skills if detected
-        if job.matched_keywords and len(job.matched_keywords) > 0:
-            skills_str = ", ".join(job.matched_keywords[:8])  # Top 8 skills
-            if len(job.matched_keywords) > 8:
-                skills_str += f" +{len(job.matched_keywords) - 8} more"
-            embed.add_field(name="🛠️ Skills", value=skills_str, inline=False)
-
-        # Add company name if detected
-        if job.company_name:
-            embed.add_field(name="🏢 Company", value=job.company_name, inline=True)
-
-        # Add footer with source
-        embed.set_footer(text=f"Source: {job.source} | Posted at")
+        embed = self.embed_builder.build_job_embed(job)
 
         try:
             # Save full job posting to database

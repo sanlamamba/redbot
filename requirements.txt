@@ -10,5 +10,9 @@ loguru==0.7.2
 # Configuration
 pyyaml==6.0.1
 
+# HTML parsing (company monitor static adapter)
+beautifulsoup4==4.12.3
+lxml==5.2.1
+
 # Legacy (keep for now, may remove later)
 praw==7.7.1
