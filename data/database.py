@@ -5,6 +5,8 @@ from typing import Optional
 from utils.logger import logger
 from .repositories import JobRepository
 from .repositories.settings_repository import SettingsRepository
+from .repositories.user_repository import UserRepository
+from .repositories.routing_repository import RoutingRepository
 
 
 class Database:
@@ -14,6 +16,8 @@ class Database:
         self.db_path = db_path
         self.jobs = JobRepository(db_path)
         self.settings = SettingsRepository(db_path)
+        self.users = UserRepository(db_path)
+        self.routes = RoutingRepository(db_path)
 
 
 # Global singleton
