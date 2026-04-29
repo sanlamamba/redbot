@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Stats{% endblock %}
+{% block content %}
+<h1>Statistics</h1>
+
+<div class="card-grid">
+  <div class="card">
+    <div class="card-value">{{ stats.total }}</div>
+    <div class="card-label">Total jobs</div>
+  </div>
+  <div class="card">
+    <div class="card-value">{{ stats.today }}</div>
+    <div class="card-label">Last 24 hours</div>
+  </div>
+  <div class="card">
+    <div class="card-value">{{ stats.week }}</div>
+    <div class="card-label">Last 7 days</div>
+  </div>
+  <div class="card">
+    <div class="card-value">{{ stats.remote_pct }}%</div>
+    <div class="card-label">Remote ({{ stats.remote }} jobs)</div>
+  </div>
+  {% if stats.avg_salary %}
+  <div class="card">
+    <div class="card-value">${{ "{:,}".format(stats.avg_salary) }}</div>
+    <div class="card-label">Avg annual salary</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="two-col">
+  <section>
+    <h2>Sources</h2>
+    <table>
+      <thead><tr><th>Source</th><th>Jobs</th></tr></thead>
+      <tbody>
+        {% for s in stats.sources %}
+        <tr><td>{{ s.source }}</td><td>{{ s.n }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Top Skills</h2>
+    <table>
+      <thead><tr><th>Skill</th><th>Mentions</th></tr></thead>
+      <tbody>
+        {% for skill, count in stats.top_skills %}
+        <tr><td>{{ skill }}</td><td>{{ count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

@@ -7,13 +7,14 @@ from utils.config import get_config
 from data.models.job import JobPosting
 from core import get_job_processor
 from sources.base import BaseSource
-from sources.adapters import GreenhouseAdapter, LeverAdapter, StaticAdapter
+from sources.adapters import GreenhouseAdapter, LeverAdapter, StaticAdapter, PlaywrightAdapter
 
 
 _ADAPTERS = {
     "greenhouse": GreenhouseAdapter,
     "lever": LeverAdapter,
     "static": StaticAdapter,
+    "playwright": PlaywrightAdapter,
 }
 
 

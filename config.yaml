@@ -151,6 +151,9 @@ platforms:
     # - name: "Legacy Co"
     #   ats_type: static
     #   url: https://careers.legacy.co/jobs
+    # - name: "JS-Heavy Co"
+    #   ats_type: playwright   # requires: pip install playwright && playwright install chromium
+    #   url: https://jobs.jsheavy.com
 
 # ML/AI settings
 machine_learning:
