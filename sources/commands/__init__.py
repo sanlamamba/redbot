@@ -2,6 +2,7 @@
 
 import discord
 from parsers import SalaryParser, ExperienceParser
+from sources.command_context import CommandContext
 from .stats import handle_stats
 from .search import handle_search
 from .trends import handle_trends
@@ -16,7 +17,7 @@ class CommandHandler:
         self.salary_parser = salary_parser
         self.experience_parser = experience_parser
 
-    async def handle_help(self, message: discord.Message) -> None:
+    async def handle_help(self, ctx: CommandContext) -> None:
         """Show available commands."""
         embed = discord.Embed(
             title="📚 Available Commands",
@@ -24,7 +25,6 @@ class CommandHandler:
             color=discord.Color.blue()
         )
 
-        # Analytics commands
         embed.add_field(name="!help", value="Show this help message", inline=False)
         embed.add_field(
             name="!stats",
@@ -42,8 +42,6 @@ class CommandHandler:
             inline=False
         )
         embed.add_field(name="!export", value="Export last 100 jobs to CSV file", inline=False)
-
-        # Admin commands
         embed.add_field(
             name="!setchannel [#channel]",
             value="🔧 **[Admin]** Set job posting channel (defaults to current channel)",
@@ -55,22 +53,22 @@ class CommandHandler:
             inline=False
         )
 
-        await message.channel.send(embed=embed)
+        await ctx.channel.send(embed=embed)
 
-    async def handle_stats(self, message: discord.Message) -> None:
-        await handle_stats(message, self.experience_parser)
+    async def handle_stats(self, ctx: CommandContext) -> None:
+        await handle_stats(ctx, self.experience_parser)
 
-    async def handle_search(self, message: discord.Message, keyword: str) -> None:
-        await handle_search(message, keyword, self.salary_parser)
+    async def handle_search(self, ctx: CommandContext, keyword: str) -> None:
+        await handle_search(ctx, keyword, self.salary_parser)
 
-    async def handle_trends(self, message: discord.Message, trend_type: str) -> None:
-        await handle_trends(message, trend_type, self.experience_parser)
+    async def handle_trends(self, ctx: CommandContext, trend_type: str) -> None:
+        await handle_trends(ctx, trend_type, self.experience_parser)
 
-    async def handle_export(self, message: discord.Message) -> None:
-        await handle_export(message)
+    async def handle_export(self, ctx: CommandContext) -> None:
+        await handle_export(ctx)
 
-    async def handle_setchannel(self, bot, message: discord.Message, args: str) -> None:
-        await handle_setchannel(bot, message, args)
+    async def handle_setchannel(self, bot, ctx: CommandContext, args: str) -> None:
+        await handle_setchannel(bot, ctx, args)
 
-    async def handle_getchannel(self, bot, message: discord.Message) -> None:
-        await handle_getchannel(bot, message)
+    async def handle_getchannel(self, bot, ctx: CommandContext) -> None:
+        await handle_getchannel(bot, ctx)

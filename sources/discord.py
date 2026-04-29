@@ -11,10 +11,12 @@ from discord import app_commands
 
 from utils.constants import CHECK_FREQUENCY_SECONDS
 from utils.logger import logger
-from data.database import save_sent_post, get_database
+from data.database import get_database
 from data.models.job import JobPosting
+from core.dedup import DeduplicationService
 from parsers import SalaryParser, ExperienceParser, SentimentAnalyzer
 from .reddit import RedditStream
+from .command_context import CommandContext
 from .commands import CommandHandler
 from .slash_commands import SlashCommands
 
@@ -34,6 +36,7 @@ class DiscordBot(discord.Client):
         self.command_handler = CommandHandler(self.salary_parser, self.experience_parser)
         self.job_sources = [reddit_stream]  # Will be updated by main.py
         self.job_channel_id = None  # Will be loaded from database on ready
+        self.dedup = DeduplicationService(get_database())
 
         # Set up slash commands
         self.tree = app_commands.CommandTree(self)
@@ -62,6 +65,10 @@ class DiscordBot(discord.Client):
         Args:
             job: JobPosting object with parsed data
         """
+        if self.dedup.is_duplicate(job):
+            logger.debug(f"Skipping duplicate job: {job.url}")
+            return
+
         if not self.job_channel_id:
             logger.warning("No job channel configured, skipping job posting")
             return
@@ -191,10 +198,7 @@ class DiscordBot(discord.Client):
             # Send to Discord
             await channel.send(embed=embed)
             logger.info(f"Sent job: {job.title[:50]}...")
-
-            # Update legacy sent_posts tracking
-            save_sent_post(job.url)
-            self.reddit_stream.sent_posts.add(job.url)
+            self.dedup.mark_seen(job)
         except Exception as e:
             logger.error(f"Error sending message to Discord: {e}")
 
@@ -213,22 +217,24 @@ class DiscordBot(discord.Client):
         command = parts[0].lower()
         args = parts[1] if len(parts) > 1 else ""
 
+        ctx = CommandContext.from_message(message)
+
         # Route commands to handler
         try:
             if command == "help":
-                await self.command_handler.handle_help(message)
+                await self.command_handler.handle_help(ctx)
             elif command == "stats":
-                await self.command_handler.handle_stats(message)
+                await self.command_handler.handle_stats(ctx)
             elif command == "search":
-                await self.command_handler.handle_search(message, args)
+                await self.command_handler.handle_search(ctx, args)
             elif command == "trends":
-                await self.command_handler.handle_trends(message, args)
+                await self.command_handler.handle_trends(ctx, args)
             elif command == "export":
-                await self.command_handler.handle_export(message)
+                await self.command_handler.handle_export(ctx)
             elif command == "setchannel":
-                await self.command_handler.handle_setchannel(self, message, args)
+                await self.command_handler.handle_setchannel(self, ctx, args)
             elif command == "getchannel":
-                await self.command_handler.handle_getchannel(self, message)
+                await self.command_handler.handle_getchannel(self, ctx)
             else:
                 await message.channel.send(f"Unknown command: `{command}`. Type `!help` for available commands.")
         except Exception as e:
@@ -260,9 +266,15 @@ class DiscordBot(discord.Client):
 
         logger.info("-"*70)
 
-        # Load job channel from database
+        # Load job channel from database (per-guild where possible)
         db = get_database()
-        self.job_channel_id = db.settings.get_int("job_channel_id")
+        # Use the first guild's channel config as the active one; multi-guild
+        # routing will be handled by Phase 4.3 RoutingEngine.
+        primary_guild_id = str(self.guilds[0].id) if self.guilds else ""
+        self.job_channel_id = (
+            db.settings.get_int("job_channel_id", guild_id=primary_guild_id)
+            or db.settings.get_int("job_channel_id", guild_id="")  # fall back to global
+        )
 
         if self.job_channel_id:
             channel = self.get_channel(self.job_channel_id)
@@ -275,9 +287,7 @@ class DiscordBot(discord.Client):
             logger.warning("⚠ No job channel configured")
             logger.warning("  Use !setchannel #channel-name to set one")
 
-        # Show enabled job sources
-        source_names = [s.__class__.__name__.replace("Stream", "").replace("Monitor", "")
-                       for s in self.job_sources]
+        source_names = [s.name for s in self.job_sources]
         logger.info(f"Job sources enabled: {', '.join(source_names)}")
 
         # Sync slash commands
@@ -310,10 +320,9 @@ class DiscordBot(discord.Client):
                     try:
                         jobs = await source.get_submissions()
                         all_jobs.extend(jobs)
-                        source_name = source.__class__.__name__.replace("Stream", "")
-                        logger.info(f"{source_name}: Found {len(jobs)} new jobs")
+                        logger.info(f"{source.name}: Found {len(jobs)} new jobs")
                     except Exception as e:
-                        logger.error(f"Error scraping {source.__class__.__name__}: {e}")
+                        logger.error(f"Error scraping {source.name}: {e}")
 
                 # Send all jobs to Discord
                 logger.info(f"Total: {len(all_jobs)} jobs from all sources")

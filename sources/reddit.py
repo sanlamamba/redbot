@@ -17,13 +17,15 @@ from utils.constants import (
     KEYWORDS,
     POST_LIMIT,
 )
-from data.database import load_sent_posts, save_sent_post
 from data.models.job import JobPosting
 from core import get_job_processor
+from sources.base import BaseSource
 
 
-class RedditStream:
-    """A class to interact with the Reddit API and get new submissions from specified subreddits."""
+class RedditStream(BaseSource):
+    """Scrape job postings from Reddit via asyncpraw."""
+
+    name = "Reddit"
 
     def __init__(self):
         self.reddit = asyncpraw.Reddit(
@@ -31,7 +33,6 @@ class RedditStream:
             client_secret=REDDIT_CLIENT_SECRET,
             user_agent=REDDIT_USER_AGENT,
         )
-        self.sent_posts = load_sent_posts()
         self.age_filter_hours = get_config("scraping.age_filter_hours", 24)
         self.exclusion_terms = get_config("scraping.exclusion_terms", ["for hire"])
         self.job_processor = get_job_processor()
@@ -66,12 +67,10 @@ class RedditStream:
                 )
                 and not any(term in post_title for term in self.exclusion_terms)
             ):
-                if post_url not in self.sent_posts:
-                    # Convert to JobPosting and process
-                    job = self._create_job_posting(submission)
-                    if job:
-                        processed_job = self.job_processor.process(job)
-                        submissions.append(processed_job)
+                job = self._create_job_posting(submission)
+                if job:
+                    processed_job = self.job_processor.process(job)
+                    submissions.append(processed_job)
 
         logger.info(f"Found {len(submissions)} new posts in the subreddits.")
         return submissions
@@ -101,12 +100,3 @@ class RedditStream:
             logger.error(f"Failed to create JobPosting from Reddit submission: {e}")
             return None
 
-    def add_sent_post(self, url: str) -> None:
-        """Add a sent post URL to the sent_posts set.
-
-        Args:
-            url (str): The URL of the sent post.
-        """
-        self.sent_posts.add(url)
-        logger.debug(f"Added {url} to the list of sent posts.")
-        save_sent_post(url)

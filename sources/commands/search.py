@@ -3,19 +3,19 @@
 import discord
 from data.database import get_database
 from parsers import SalaryParser
+from sources.command_context import CommandContext
 
 
-async def handle_search(message: discord.Message, keyword: str, salary_parser: SalaryParser) -> None:
+async def handle_search(ctx: CommandContext, keyword: str, salary_parser: SalaryParser) -> None:
     """Search recent jobs by keyword."""
     if not keyword:
-        await message.channel.send("❌ Please provide a keyword to search. Usage: `!search python`")
+        await ctx.channel.send("❌ Please provide a keyword to search. Usage: `!search python`")
         return
 
     keyword = keyword.lower().strip()
     db = get_database()
-    jobs = db.jobs.get_recent(hours=24*7, limit=1000)
+    jobs = db.jobs.get_recent(hours=24 * 7, limit=1000)
 
-    # Filter by keyword
     matching_jobs = [
         j for j in jobs
         if keyword in j.title.lower() or
@@ -24,10 +24,9 @@ async def handle_search(message: discord.Message, keyword: str, salary_parser: S
     ]
 
     if not matching_jobs:
-        await message.channel.send(f"🔍 No jobs found matching keyword: `{keyword}`")
+        await ctx.channel.send(f"🔍 No jobs found matching keyword: `{keyword}`")
         return
 
-    # Show first 5 results
     embed = discord.Embed(
         title=f"🔍 Search Results: '{keyword}'",
         description=f"Found {len(matching_jobs)} jobs. Showing top 5:",
@@ -51,4 +50,4 @@ async def handle_search(message: discord.Message, keyword: str, salary_parser: S
     if len(matching_jobs) > 5:
         embed.set_footer(text=f"+ {len(matching_jobs) - 5} more jobs matching '{keyword}'")
 
-    await message.channel.send(embed=embed)
+    await ctx.channel.send(embed=embed)

@@ -9,10 +9,13 @@ from utils.config import get_config
 from data.database import get_database
 from data.models.job import JobPosting
 from core import get_job_processor
+from sources.base import BaseSource
 
 
-class HackerNewsStream:
+class HackerNewsStream(BaseSource):
     """Scrape job postings from HackerNews 'Who is hiring?' threads."""
+
+    name = "HackerNews"
 
     def __init__(self):
         """Initialize HackerNews stream."""
