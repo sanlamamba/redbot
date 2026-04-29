@@ -4,6 +4,7 @@ Enhanced configuration loader with YAML support.
 This module loads configuration from config.yaml and provides backward
 compatibility with environment variables and legacy constants.
 """
+import sys
 import yaml
 from pathlib import Path
 from typing import Any, Optional
@@ -31,11 +32,11 @@ class Config:
                 with open(config_path, 'r') as f:
                     self._config = yaml.safe_load(f) or {}
             except Exception as e:
-                print(f"Warning: Failed to load config.yaml: {e}")
-                print("Using default configuration")
+                print(f"WARNING: Failed to load config.yaml: {e}", file=sys.stderr)
+                print("WARNING: Using default configuration", file=sys.stderr)
                 self._config = self._get_default_config()
         else:
-            print(f"Warning: {self.config_file} not found, using defaults")
+            print(f"WARNING: {self.config_file} not found, using defaults", file=sys.stderr)
             self._config = self._get_default_config()
 
     def _get_default_config(self) -> dict:

@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Jobs{% endblock %}
+{% block content %}
+<h1>Job Listings <span class="badge">{{ total }}</span></h1>
+
+<form class="filters" method="get" action="/jobs">
+  <input name="q" type="text" placeholder="Search…" value="{{ q }}">
+  <select name="days">
+    {% for d, label in [(1,'Last 24h'),(7,'Last 7d'),(30,'Last 30d'),(0,'All time')] %}
+    <option value="{{ d }}" {% if days==d %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="source">
+    <option value="">All sources</option>
+    {% for s in ['reddit','hackernews','company'] %}
+    <option value="{{ s }}" {% if source==s %}selected{% endif %}>{{ s }}</option>
+    {% endfor %}
+  </select>
+  <input name="min_salary" type="number" placeholder="Min salary" value="{{ min_salary if min_salary else '' }}" step="10000" min="0">
+  <label class="checkbox">
+    <input name="remote" type="checkbox" value="true" {% if remote %}checked{% endif %}> Remote only
+  </label>
+  <button type="submit">Filter</button>
+  {% if q or remote or source or min_salary or days != 7 %}
+  <a href="/jobs" class="btn-clear">Clear</a>
+  {% endif %}
+</form>
+
+{% if jobs %}
+<table>
+  <thead>
+    <tr>
+      <th>Title</th>
+      <th>Company</th>
+      <th>Salary</th>
+      <th>Level</th>
+      <th>Location</th>
+      <th>Source</th>
+      <th>Score</th>
+      <th>Posted</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for j in jobs %}
+    <tr class="{% if j.red_flags|length >= 3 %}row-red{% elif j.red_flags %}row-orange{% elif j.priority_score >= 80 %}row-gold{% endif %}">
+      <td><a href="/job/{{ j.id }}">{{ j.title[:80] }}</a></td>
+      <td>{{ j.company_name or '' }}</td>
+      <td class="mono">{{ j.salary_str }}</td>
+      <td>{{ j.experience_level or '' }}</td>
+      <td>{% if j.is_remote %}🌍 Remote{% else %}{{ j.location or '' }}{% endif %}</td>
+      <td><span class="tag">{{ j.source }}</span></td>
+      <td class="score">{{ j.priority_score }}</td>
+      <td class="muted">{{ j.posted_str }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="pagination">
+  {% if page > 1 %}
+  <a href="?q={{ q }}&days={{ days }}&source={{ source }}&min_salary={{ min_salary }}&remote={{ remote|lower }}&page={{ page - 1 }}">&laquo; Prev</a>
+  {% endif %}
+  <span>Page {{ page }} / {{ total_pages }}</span>
+  {% if page < total_pages %}
+  <a href="?q={{ q }}&days={{ days }}&source={{ source }}&min_salary={{ min_salary }}&remote={{ remote|lower }}&page={{ page + 1 }}">Next &raquo;</a>
+  {% endif %}
+</div>
+{% else %}
+<p class="empty">No jobs found matching your filters.</p>
+{% endif %}
+{% endblock %}

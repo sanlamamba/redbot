@@ -5,6 +5,8 @@ scraping:
   check_frequency_seconds: 60  # How often to check for new jobs
   post_limit: 100  # Number of posts to fetch per check
   age_filter_hours: 24  # Ignore posts older than this (0 = no limit)
+  exclusion_terms:  # Posts with these terms in the title are skipped
+    - for hire
 
 # Reddit configuration
 reddit:
@@ -122,6 +124,7 @@ platforms:
   hackernews:
     enabled: false  # Enable Hacker News scraping
     check_frequency_hours: 1
+    comment_limit: 500  # Max comments to fetch per hiring thread
 
   indeed:
     enabled: false  # Enable Indeed scraping
@@ -136,6 +139,21 @@ platforms:
   company_monitor:
     enabled: false  # Enable company career page monitoring
     check_frequency_hours: 24
+    # Per-company config. ats_type: greenhouse | lever | static
+    companies: []
+    # Example entries (uncomment and fill in):
+    # - name: "Acme Corp"
+    #   ats_type: greenhouse
+    #   slug: acme-corp          # Greenhouse board slug
+    # - name: "Widget Inc"
+    #   ats_type: lever
+    #   slug: widget-inc         # Lever company slug
+    # - name: "Legacy Co"
+    #   ats_type: static
+    #   url: https://careers.legacy.co/jobs
+    # - name: "JS-Heavy Co"
+    #   ats_type: playwright   # requires: pip install playwright && playwright install chromium
+    #   url: https://jobs.jsheavy.com
 
 # ML/AI settings
 machine_learning:
@@ -153,6 +171,9 @@ parsers:
       - CAD
       - AUD
     normalize_to_annual: true  # Convert hourly/monthly to annual
+    min_valid_annual: 10000    # Reject salaries below this (annualized)
+    max_valid_annual: 1000000  # Reject salaries above this (annualized)
+    hours_per_week: 40         # Assumed hours/week for hourly-to-annual conversion
 
   sentiment:
     red_flag_keywords:

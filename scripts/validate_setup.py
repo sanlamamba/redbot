@@ -95,10 +95,22 @@ def validate_config_file() -> bool:
 
         print(f"  {GREEN}✓{RESET} Config is valid YAML")
 
+        if platforms.get("indeed", {}).get("enabled"):
+            enabled_platforms.append("Indeed")
+
         if enabled_platforms:
             print(f"  {GREEN}✓{RESET} Additional platforms: {', '.join(enabled_platforms)}")
         else:
-            print(f"  {YELLOW}ℹ{RESET} Only Reddit enabled (HackerNews and Company Monitor disabled)")
+            print(f"  {YELLOW}ℹ{RESET} Only Reddit enabled (other sources disabled)")
+
+        notif = config.get("notifications", {}).get("default_mode", "instant")
+        print(f"  {GREEN}✓{RESET} Notification mode: {notif}")
+
+        web_enabled = "--web" in sys.argv
+        if web_enabled:
+            print(f"  {GREEN}✓{RESET} Web dashboard: enabled (will start on port 8080)")
+        else:
+            print(f"  {YELLOW}ℹ{RESET} Web dashboard: disabled (start with --web to enable)")
 
         return True
     except Exception as e:
@@ -139,7 +151,16 @@ def validate_dependencies() -> bool:
         "aiohttp": "HTTP client for HackerNews/companies",
         "yaml": "Config file parsing",
         "loguru": "Logging system",
-        "dotenv": "Environment variables"
+        "dotenv": "Environment variables",
+        "bs4": "HTML parsing (company monitor)",
+        "lxml": "HTML parser backend",
+        "fastapi": "Web dashboard",
+        "uvicorn": "Web dashboard server",
+        "jinja2": "Web dashboard templates",
+    }
+
+    optional_packages = {
+        "playwright": "JS-rendered career pages (optional)",
     }
 
     missing = []
@@ -150,6 +171,13 @@ def validate_dependencies() -> bool:
         except ImportError:
             print(f"  {RED}✗{RESET} {package:12} - {description} (NOT INSTALLED)")
             missing.append(package)
+
+    for package, description in optional_packages.items():
+        try:
+            __import__(package)
+            print(f"  {GREEN}✓{RESET} {package:12} - {description}")
+        except ImportError:
+            print(f"  {YELLOW}ℹ{RESET} {package:12} - {description} (not installed)")
 
     if missing:
         print(f"\n  {YELLOW}Run:{RESET} pip install -r requirements.txt")
@@ -173,8 +201,10 @@ def main():
     print(f"\n{'='*60}")
     if all(checks):
         print(f"{GREEN}✓ All checks passed! Ready to deploy.{RESET}")
-        print(f"\n  Start with: python main.py")
-        print(f"  Or Docker:  docker-compose up -d")
+        print(f"\n  Start bot only:          python main.py")
+        print(f"  Start bot + dashboard:   python main.py --web")
+        print(f"  Dashboard port override: python main.py --web --web-port 9000")
+        print(f"  Or Docker:               docker-compose up -d")
         print(f"{'='*60}\n")
         return 0
     else:

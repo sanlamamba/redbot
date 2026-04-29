@@ -17,13 +17,15 @@ from utils.constants import (
     KEYWORDS,
     POST_LIMIT,
 )
-from data.database import load_sent_posts, save_sent_post
 from data.models.job import JobPosting
 from core import get_job_processor
+from sources.base import BaseSource
 
 
-class RedditStream:
-    """A class to interact with the Reddit API and get new submissions from specified subreddits."""
+class RedditStream(BaseSource):
+    """Scrape job postings from Reddit via asyncpraw."""
+
+    name = "Reddit"
 
     def __init__(self):
         self.reddit = asyncpraw.Reddit(
@@ -31,8 +33,8 @@ class RedditStream:
             client_secret=REDDIT_CLIENT_SECRET,
             user_agent=REDDIT_USER_AGENT,
         )
-        self.sent_posts = load_sent_posts()
         self.age_filter_hours = get_config("scraping.age_filter_hours", 24)
+        self.exclusion_terms = get_config("scraping.exclusion_terms", ["for hire"])
         self.job_processor = get_job_processor()
 
     async def get_submissions(self) -> list:
@@ -63,44 +65,38 @@ class RedditStream:
                     keyword in post_title or keyword in post_text
                     for keyword in KEYWORDS
                 )
-                and "for hire" not in post_title
+                and not any(term in post_title for term in self.exclusion_terms)
             ):
-                if post_url not in self.sent_posts:
-                    # Convert to JobPosting and process
-                    job = self._create_job_posting(submission)
+                job = self._create_job_posting(submission)
+                if job:
                     processed_job = self.job_processor.process(job)
                     submissions.append(processed_job)
 
         logger.info(f"Found {len(submissions)} new posts in the subreddits.")
         return submissions
 
-    def _create_job_posting(self, submission) -> JobPosting:
+    def _create_job_posting(self, submission) -> JobPosting | None:
         """Convert Reddit submission to JobPosting.
 
         Args:
             submission: asyncpraw Submission object
 
         Returns:
-            JobPosting instance
+            JobPosting instance, or None if conversion fails
         """
-        return JobPosting(
-            url=submission.url,
-            title=submission.title,
-            description=submission.selftext,
-            subreddit=submission.subreddit.display_name,
-            author=submission.author.name if submission.author else "[deleted]",
-            created_utc=int(submission.created_utc),
-            discovered_at=datetime.utcnow().isoformat(),
-            source="reddit",
-            source_id=submission.id
-        )
+        try:
+            return JobPosting(
+                url=submission.url,
+                title=submission.title,
+                description=submission.selftext,
+                subreddit=getattr(submission.subreddit, 'display_name', 'unknown'),
+                author=submission.author.name if submission.author else "[deleted]",
+                created_utc=int(submission.created_utc),
+                discovered_at=datetime.utcnow().isoformat(),
+                source="reddit",
+                source_id=submission.id
+            )
+        except Exception as e:
+            logger.error(f"Failed to create JobPosting from Reddit submission: {e}")
+            return None
 
-    def add_sent_post(self, url: str) -> None:
-        """Add a sent post URL to the sent_posts set.
-
-        Args:
-            url (str): The URL of the sent post.
-        """
-        self.sent_posts.add(url)
-        logger.debug(f"Added {url} to the list of sent posts.")
-        save_sent_post(url)

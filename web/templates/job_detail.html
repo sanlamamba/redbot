@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ job.title[:60] }}{% endblock %}
+{% block content %}
+<a href="/jobs" class="back">&larr; Back to jobs</a>
+
+<article class="job-detail">
+  <h1>{{ job.title }}</h1>
+  <div class="meta-row">
+    {% if job.company_name %}<span>🏢 {{ job.company_name }}</span>{% endif %}
+    {% if job.is_remote %}<span>🌍 Remote</span>{% elif job.location %}<span>📍 {{ job.location }}</span>{% endif %}
+    {% if job.salary_str %}<span>💰 {{ job.salary_str }}</span>{% endif %}
+    {% if job.experience_level %}<span>📊 {{ job.experience_level }}</span>{% endif %}
+    <span class="muted">{{ job.posted_str }} via {{ job.source }}</span>
+  </div>
+
+  {% if job.red_flags %}
+  <div class="alert">
+    ⚠️ Red flags: {{ job.red_flags | join(', ') }}
+  </div>
+  {% endif %}
+
+  {% if job.matched_keywords %}
+  <div class="skills">
+    {% for kw in job.matched_keywords %}
+    <span class="tag">{{ kw }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="score-bar">
+    Quality score: <strong>{{ job.priority_score }}/100</strong>
+    <div class="bar"><div class="bar-fill" style="width:{{ job.priority_score }}%"></div></div>
+  </div>
+
+  <div class="description">
+    {{ job.description or 'No description available.' }}
+  </div>
+
+  <div class="actions">
+    <a class="btn-primary" href="{{ job.url }}" target="_blank" rel="noopener">View Original Posting ↗</a>
+  </div>
+</article>
+{% endblock %}

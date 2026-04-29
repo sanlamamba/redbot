@@ -6,6 +6,15 @@ services:
     container_name: redbot
     env_file:
       - .env
+    environment:
+      # Set WEB=1 to enable the web dashboard alongside the bot.
+      # Set WEB_PORT to override the default port (8080).
+      WEB: ${WEB:-}
+      WEB_PORT: ${WEB_PORT:-8080}
+    ports:
+      # Dashboard is only reachable when WEB=1; the port mapping is harmless
+      # when the dashboard is disabled because nothing listens on 8080.
+      - "${WEB_PORT:-8080}:8080"
     volumes:
       - ./sent_posts.db:/app/sent_posts.db
       - ./logs:/app/logs

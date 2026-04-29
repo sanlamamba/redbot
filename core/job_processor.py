@@ -1,4 +1,5 @@
 """Job processing pipeline - integrates all parsers."""
+import hashlib
 from datetime import datetime
 from typing import Optional
 
@@ -70,6 +71,13 @@ class JobProcessor:
                 if company:
                     job.company_name = company
 
+            # Compute content hash for cross-source dedup
+            raw = f"{job.company_name or ''}|{job.title}|{job.source}"
+            job.content_hash = hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+            # Compute quality score
+            job.priority_score = self._score(job)
+
             logger.info(
                 f"Processed job: {job.title} | "
                 f"Salary: {'Yes' if job.salary_min else 'No'} | "
@@ -81,6 +89,52 @@ class JobProcessor:
             logger.error(f"Error processing job {job.url}: {e}")
 
         return job
+
+    # Approximate annual salary medians by experience level (USD)
+    _LEVEL_MEDIANS = {
+        "junior": 75_000,
+        "mid": 110_000,
+        "senior": 145_000,
+        "lead": 160_000,
+        "principal": 175_000,
+        "staff": 175_000,
+    }
+
+    def _score(self, job) -> int:
+        """Compute a 0-100 quality score for a processed job posting."""
+        score = 50  # baseline
+
+        # Salary above experience-level median
+        if job.salary_min:
+            level = (job.experience_level or "").split(",")[0].strip().lower()
+            median = self._LEVEL_MEDIANS.get(level, 110_000)
+            if job.salary_min > median:
+                score += 20
+
+        # Remote bonus
+        if job.is_remote:
+            score += 15
+
+        # Positive sentiment
+        if job.sentiment_score and job.sentiment_score > 0.2:
+            score += 10
+
+        # Red flags penalty (−15 each, cap −45)
+        if job.red_flags:
+            score -= min(len(job.red_flags) * 15, 45)
+
+        # Company name extractable
+        if job.company_name:
+            score += 10
+
+        # Verified skill matches (+5 each, cap +25)
+        score += min(len(job.matched_keywords) * 5, 25)
+
+        # Short description penalty
+        if not job.description or len(job.description) < 200:
+            score -= 10
+
+        return max(0, min(100, score))
 
     def process_batch(self, jobs: list) -> list:
         """Process multiple jobs.

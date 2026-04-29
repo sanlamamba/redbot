@@ -2,6 +2,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, List
 
+from utils.logger import logger
 from ..models.job import JobPosting
 from .base_repository import BaseRepository
 
@@ -34,7 +35,31 @@ class JobRepository(BaseRepository):
 
                 return cursor.lastrowid if cursor.rowcount > 0 else None
         except Exception as e:
-            print(f"Error saving job: {e}")
+            logger.error(f"Error saving job: {e}")
+            return None
+
+    def get_by_id(self, job_id: int) -> Optional[JobPosting]:
+        """Get job posting by primary key."""
+        try:
+            with self.get_connection() as conn:
+                row = conn.execute(
+                    "SELECT * FROM job_postings WHERE id = ?", (job_id,)
+                ).fetchone()
+                return JobPosting.from_dict(dict(row)) if row else None
+        except Exception as e:
+            logger.error(f"Error getting job by ID: {e}")
+            return None
+
+    def get_id_by_url(self, url: str) -> Optional[int]:
+        """Return the integer primary key for a URL that already exists."""
+        try:
+            with self.get_connection() as conn:
+                row = conn.execute(
+                    "SELECT id FROM job_postings WHERE url = ?", (url,)
+                ).fetchone()
+                return row["id"] if row else None
+        except Exception as e:
+            logger.error(f"Error getting job ID by URL: {e}")
             return None
 
     def get_by_url(self, url: str) -> Optional[JobPosting]:
@@ -46,7 +71,7 @@ class JobRepository(BaseRepository):
                 row = cursor.fetchone()
                 return JobPosting.from_dict(dict(row)) if row else None
         except Exception as e:
-            print(f"Error getting job by URL: {e}")
+            logger.error(f"Error getting job by URL: {e}")
             return None
 
     def get_recent(self, hours: int = 24, limit: int = 100) -> List[JobPosting]:
@@ -68,7 +93,7 @@ class JobRepository(BaseRepository):
 
                 return [JobPosting.from_dict(dict(row)) for row in cursor.fetchall()]
         except Exception as e:
-            print(f"Error getting recent jobs: {e}")
+            logger.error(f"Error getting recent jobs: {e}")
             return []
 
     def mark_duplicate(self, job_url: str, original_job_id: int) -> bool:
@@ -82,7 +107,7 @@ class JobRepository(BaseRepository):
                 )
                 return cursor.rowcount > 0
         except Exception as e:
-            print(f"Error marking duplicate: {e}")
+            logger.error(f"Error marking duplicate: {e}")
             return False
 
     def find_similar(self, job: JobPosting, days: int = 7) -> List[JobPosting]:
@@ -107,7 +132,7 @@ class JobRepository(BaseRepository):
 
                 return [JobPosting.from_dict(dict(row)) for row in cursor.fetchall()]
         except Exception as e:
-            print(f"Error finding similar jobs: {e}")
+            logger.error(f"Error finding similar jobs: {e}")
             return []
 
     def archive_old(self, days: int = 90) -> int:
@@ -128,5 +153,5 @@ class JobRepository(BaseRepository):
                 )
                 return cursor.rowcount
         except Exception as e:
-            print(f"Error archiving old jobs: {e}")
+            logger.error(f"Error archiving old jobs: {e}")
             return 0

@@ -4,34 +4,34 @@ from statistics import median
 import discord
 from data.database import get_database
 from parsers import ExperienceParser
+from sources.command_context import CommandContext
 
 
-async def handle_trends(message: discord.Message, trend_type: str, experience_parser: ExperienceParser) -> None:
+async def handle_trends(ctx: CommandContext, trend_type: str, experience_parser: ExperienceParser) -> None:
     """Show trends over last 30 days."""
     if not trend_type:
-        await message.channel.send("❌ Please specify trend type: `!trends salary`, `!trends keywords`, or `!trends subreddits`")
+        await ctx.channel.send("❌ Please specify trend type: `!trends salary`, `!trends keywords`, or `!trends subreddits`")
         return
 
     trend_type = trend_type.lower().strip()
     db = get_database()
-    jobs = db.jobs.get_recent(hours=24*30, limit=10000)
+    jobs = db.jobs.get_recent(hours=24 * 30, limit=10000)
 
     if not jobs:
-        await message.channel.send("📈 No data available for the last 30 days.")
+        await ctx.channel.send("📈 No data available for the last 30 days.")
         return
 
     if trend_type == "salary":
-        await _show_salary_trends(message, jobs, experience_parser)
+        await _show_salary_trends(ctx, jobs, experience_parser)
     elif trend_type in ["keywords", "keyword"]:
-        await _show_keyword_trends(message, jobs)
+        await _show_keyword_trends(ctx, jobs)
     elif trend_type in ["subreddits", "subreddit"]:
-        await _show_subreddit_trends(message, jobs)
+        await _show_subreddit_trends(ctx, jobs)
     else:
-        await message.channel.send(f"❌ Unknown trend type: `{trend_type}`. Use: `salary`, `keywords`, or `subreddits`")
+        await ctx.channel.send(f"❌ Unknown trend type: `{trend_type}`. Use: `salary`, `keywords`, or `subreddits`")
 
 
-async def _show_salary_trends(message: discord.Message, jobs: list, experience_parser: ExperienceParser) -> None:
-    """Show salary trends by experience level."""
+async def _show_salary_trends(ctx: CommandContext, jobs: list, experience_parser: ExperienceParser) -> None:
     by_level = {}
     for job in jobs:
         if not (job.salary_min and job.experience_level):
@@ -42,7 +42,7 @@ async def _show_salary_trends(message: discord.Message, jobs: list, experience_p
         by_level[level].append(job.salary_min)
 
     if not by_level:
-        await message.channel.send("📈 Not enough salary data to show trends.")
+        await ctx.channel.send("📈 Not enough salary data to show trends.")
         return
 
     embed = discord.Embed(
@@ -64,11 +64,10 @@ async def _show_salary_trends(message: discord.Message, jobs: list, experience_p
             inline=True
         )
 
-    await message.channel.send(embed=embed)
+    await ctx.channel.send(embed=embed)
 
 
-async def _show_keyword_trends(message: discord.Message, jobs: list) -> None:
-    """Show most trending keywords."""
+async def _show_keyword_trends(ctx: CommandContext, jobs: list) -> None:
     keyword_counts = {}
     for job in jobs:
         if job.matched_keywords:
@@ -76,7 +75,7 @@ async def _show_keyword_trends(message: discord.Message, jobs: list) -> None:
                 keyword_counts[kw] = keyword_counts.get(kw, 0) + 1
 
     if not keyword_counts:
-        await message.channel.send("📈 No keyword data available.")
+        await ctx.channel.send("📈 No keyword data available.")
         return
 
     top_keywords = sorted(keyword_counts.items(), key=lambda x: x[1], reverse=True)[:10]
@@ -88,16 +87,15 @@ async def _show_keyword_trends(message: discord.Message, jobs: list) -> None:
     )
 
     keywords_str = "\n".join([
-        f"{i+1}. **{kw}** - {count} jobs ({count*100//len(jobs):.0f}%)"
+        f"{i+1}. **{kw}** - {count} jobs ({count * 100 // len(jobs):.0f}%)"
         for i, (kw, count) in enumerate(top_keywords)
     ])
     embed.add_field(name=f"Top 10 (from {len(jobs)} jobs)", value=keywords_str, inline=False)
 
-    await message.channel.send(embed=embed)
+    await ctx.channel.send(embed=embed)
 
 
-async def _show_subreddit_trends(message: discord.Message, jobs: list) -> None:
-    """Show most active subreddits."""
+async def _show_subreddit_trends(ctx: CommandContext, jobs: list) -> None:
     subreddit_counts = {}
     for job in jobs:
         subreddit_counts[job.subreddit] = subreddit_counts.get(job.subreddit, 0) + 1
@@ -111,9 +109,9 @@ async def _show_subreddit_trends(message: discord.Message, jobs: list) -> None:
     )
 
     subreddits_str = "\n".join([
-        f"{i+1}. **r/{sub}** - {count} jobs ({count*100//len(jobs):.0f}%)"
+        f"{i+1}. **r/{sub}** - {count} jobs ({count * 100 // len(jobs):.0f}%)"
         for i, (sub, count) in enumerate(top_subreddits)
     ])
     embed.add_field(name=f"Top 10 (from {len(jobs)} total)", value=subreddits_str, inline=False)
 
-    await message.channel.send(embed=embed)
+    await ctx.channel.send(embed=embed)
