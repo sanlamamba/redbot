@@ -38,6 +38,30 @@ class JobRepository(BaseRepository):
             logger.error(f"Error saving job: {e}")
             return None
 
+    def get_by_id(self, job_id: int) -> Optional[JobPosting]:
+        """Get job posting by primary key."""
+        try:
+            with self.get_connection() as conn:
+                row = conn.execute(
+                    "SELECT * FROM job_postings WHERE id = ?", (job_id,)
+                ).fetchone()
+                return JobPosting.from_dict(dict(row)) if row else None
+        except Exception as e:
+            logger.error(f"Error getting job by ID: {e}")
+            return None
+
+    def get_id_by_url(self, url: str) -> Optional[int]:
+        """Return the integer primary key for a URL that already exists."""
+        try:
+            with self.get_connection() as conn:
+                row = conn.execute(
+                    "SELECT id FROM job_postings WHERE url = ?", (url,)
+                ).fetchone()
+                return row["id"] if row else None
+        except Exception as e:
+            logger.error(f"Error getting job ID by URL: {e}")
+            return None
+
     def get_by_url(self, url: str) -> Optional[JobPosting]:
         """Get job posting by URL."""
         try:

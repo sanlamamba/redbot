@@ -102,11 +102,14 @@ class DiscordBot(discord.Client):
         embed = self.embed_builder.build_job_embed(job)
 
         try:
-            job_id = db.jobs.save(job)
-            if job_id:
-                logger.debug(f"Saved job to database: ID {job_id}")
+            job_db_id = db.jobs.save(job)
+            if job_db_id:
+                logger.debug(f"Saved job to database: ID {job_db_id}")
+            else:
+                # Job already existed — retrieve its ID for the action buttons
+                job_db_id = db.jobs.get_id_by_url(job.url) or 0
 
-            view = JobActionsView.for_job(job.url)
+            view = JobActionsView.for_job(job_db_id)
             sent = False
             for channel_id in target_ids:
                 ch = self.get_channel(channel_id)
@@ -163,6 +166,37 @@ class DiscordBot(discord.Client):
                 db.users.mark_dm_disabled(search.user_id)
             except Exception as e:
                 logger.error(f"Error sending DM alert to {search.user_id}: {e}")
+
+    async def on_interaction(self, interaction: discord.Interaction) -> None:
+        """Handle persistent job action button interactions.
+
+        discord.py's CommandTree and registered persistent views are dispatched
+        via the internal ConnectionState before this event fires.  We use this
+        hook to handle 'job:*' component interactions whose dynamic DB-ID suffix
+        can't be matched by discord.py's exact custom_id persistence mechanism.
+        """
+        if interaction.type != discord.InteractionType.component:
+            return
+        custom_id = (interaction.data or {}).get("custom_id", "")
+        if not custom_id.startswith("job:"):
+            return
+
+        parts = custom_id.split(":", 2)
+        if len(parts) != 3:
+            return
+        _, action, _ = parts
+
+        _ACTIONS = {
+            "save":    ("saved",     "💾 Job saved to your list!"),
+            "apply":   ("applied",   "✅ Marked as applied!"),
+            "dismiss": ("dismissed", "🙈 Dismissed — won't appear in your searches."),
+        }
+        if action not in _ACTIONS:
+            return
+
+        db_action, message_text = _ACTIONS[action]
+        view = JobActionsView()
+        await view._handle(interaction, db_action, message_text)
 
     async def on_message(self, message: discord.Message) -> None:
         """Event handler for processing commands."""
@@ -263,8 +297,9 @@ class DiscordBot(discord.Client):
             logger.error(f"⚠ Failed to sync slash commands: {e}")
             logger.warning("  Text commands (!help) will still work")
 
-        # Register persistent view so button interactions survive restarts
-        self.add_view(JobActionsView())
+        # No add_view() needed for job buttons — they're handled in on_interaction
+        # below via custom_id prefix matching, which discord.py's exact-match
+        # persistent view registration can't do for dynamic IDs.
 
         logger.info("="*70)
         logger.info("Bot ready! Monitoring for jobs...")

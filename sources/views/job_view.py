@@ -1,54 +1,56 @@
-"""Persistent action buttons attached to every job posting embed."""
+"""Persistent action buttons attached to every job posting embed.
+
+Custom ID format: "job:<action>:<db_id>" where db_id is the integer
+primary key from job_postings.  This stays well under Discord's 100-char
+custom_id limit (max ~30 chars) and survives URL changes or truncation.
+"""
 import discord
 
 from data.database import get_database
 from utils.logger import logger
 
+# Prefix shared across all job action buttons — used by the persistent view
+# registration in on_ready() to route interactions to this class.
+_PREFIX = "job:"
+
+
+def _custom_id(action: str, job_db_id: int) -> str:
+    return f"job:{action}:{job_db_id}"
+
 
 class JobActionsView(discord.ui.View):
     """Save / Applied / Dismiss buttons for a job posting.
 
-    timeout=None makes the view persistent across bot restarts (Discord
-    continues to route button interactions to the bot).  The view is
-    registered in on_ready() so it survives restarts.
+    timeout=None makes the view persistent across bot restarts.
+    The view is re-registered in on_ready() so Discord can route
+    button interactions even after a restart.
     """
 
-    # Custom IDs are stable — changing them breaks in-flight interactions
-    CUSTOM_ID_SAVE = "job:save"
-    CUSTOM_ID_APPLY = "job:apply"
-    CUSTOM_ID_DISMISS = "job:dismiss"
-
-    def __init__(self, job_url: str = ""):
+    def __init__(self, job_db_id: int = 0):
         super().__init__(timeout=None)
-        # Store the job URL as instance state so button handlers can look it up.
-        # For persisted views Discord re-creates the view from custom_id; the
-        # URL is embedded in the button custom_id as a suffix.
-        self._job_url = job_url
+        self._job_db_id = job_db_id
 
     # ------------------------------------------------------------------
     # Factory — called when attaching to a new embed
     # ------------------------------------------------------------------
 
     @classmethod
-    def for_job(cls, job_url: str) -> "JobActionsView":
-        view = cls(job_url=job_url)
-        # Re-assign custom IDs to embed the URL so the handler can retrieve it
-        # even after a bot restart (Discord passes back the full custom_id).
-        # We truncate to 100 chars (Discord limit).
-        suffix = f":{job_url}"[:95]
-        view.save_button.custom_id = cls.CUSTOM_ID_SAVE + suffix
-        view.apply_button.custom_id = cls.CUSTOM_ID_APPLY + suffix
-        view.dismiss_button.custom_id = cls.CUSTOM_ID_DISMISS + suffix
+    def for_job(cls, job_db_id: int) -> "JobActionsView":
+        """Create a view wired to a specific job's DB row."""
+        view = cls(job_db_id=job_db_id)
+        view.save_button.custom_id = _custom_id("save", job_db_id)
+        view.apply_button.custom_id = _custom_id("apply", job_db_id)
+        view.dismiss_button.custom_id = _custom_id("dismiss", job_db_id)
         return view
 
     # ------------------------------------------------------------------
-    # Buttons
+    # Buttons (default custom_ids used by the persistent registration)
     # ------------------------------------------------------------------
 
     @discord.ui.button(
         label="💾 Save",
         style=discord.ButtonStyle.secondary,
-        custom_id=CUSTOM_ID_SAVE,
+        custom_id="job:save:0",
     )
     async def save_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._handle(interaction, "saved", "💾 Job saved to your list!")
@@ -56,7 +58,7 @@ class JobActionsView(discord.ui.View):
     @discord.ui.button(
         label="✅ Applied",
         style=discord.ButtonStyle.success,
-        custom_id=CUSTOM_ID_APPLY,
+        custom_id="job:apply:0",
     )
     async def apply_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._handle(interaction, "applied", "✅ Marked as applied!")
@@ -64,23 +66,29 @@ class JobActionsView(discord.ui.View):
     @discord.ui.button(
         label="🙈 Dismiss",
         style=discord.ButtonStyle.danger,
-        custom_id=CUSTOM_ID_DISMISS,
+        custom_id="job:dismiss:0",
     )
     async def dismiss_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self._handle(interaction, "dismissed", "🙈 Job dismissed — won't appear in your searches.")
+        await self._handle(interaction, "dismissed", "🙈 Dismissed — won't appear in your searches.")
 
     # ------------------------------------------------------------------
 
-    async def _handle(
-        self, interaction: discord.Interaction, action: str, message: str
-    ) -> None:
+    async def _handle(self, interaction: discord.Interaction, action: str, message: str) -> None:
         user_id = str(interaction.user.id)
-        # Recover URL from custom_id suffix (format: "job:<action>:<url>")
-        parts = interaction.data.get("custom_id", "").split(":", 2)
-        job_url = parts[2] if len(parts) == 3 else self._job_url
+
+        # Parse DB ID from custom_id: "job:<action>:<db_id>"
+        raw_id = interaction.data.get("custom_id", "").rsplit(":", 1)[-1]
+        try:
+            db_id = int(raw_id)
+        except ValueError:
+            db_id = self._job_db_id
 
         try:
             db = get_database()
+            # Resolve the canonical URL from the DB so interactions are
+            # always recorded against a full, uncorrupted URL.
+            job = db.jobs.get_by_id(db_id) if db_id else None
+            job_url = job.url if job else f"job_id:{db_id}"
             db.users.record_interaction(user_id, job_url, action)
         except Exception as e:
             logger.error(f"JobActionsView: error recording {action} for {user_id}: {e}")
