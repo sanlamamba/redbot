@@ -20,38 +20,45 @@ class CommandHandler:
     async def handle_help(self, ctx: CommandContext) -> None:
         """Show available commands."""
         embed = discord.Embed(
-            title="📚 Available Commands",
-            description="Here are the commands you can use:",
-            color=discord.Color.blue()
+            title="📚 RedBot Commands",
+            description="Prefix commands (`!`) work everywhere. Slash commands (`/`) require Discord to sync.",
+            color=discord.Color.blue(),
         )
 
-        embed.add_field(name="!help", value="Show this help message", inline=False)
-        embed.add_field(
-            name="!stats",
-            value="Show today's job statistics (total jobs, avg salary, top keywords)",
-            inline=False
-        )
-        embed.add_field(
-            name="!search <keyword>",
-            value="Search recent jobs by keyword (e.g., `!search python`)",
-            inline=False
-        )
-        embed.add_field(
-            name="!trends <type>",
-            value="Show trends over last 30 days\nTypes: `salary`, `keywords`, `subreddits`",
-            inline=False
-        )
-        embed.add_field(name="!export", value="Export last 100 jobs to CSV file", inline=False)
-        embed.add_field(
-            name="!setchannel [#channel]",
-            value="🔧 **[Admin]** Set job posting channel (defaults to current channel)",
-            inline=False
-        )
-        embed.add_field(
-            name="!getchannel",
-            value="Show current job posting channel",
-            inline=False
-        )
+        embed.add_field(name="── Job Discovery ──", value="​", inline=False)
+        embed.add_field(name="!search / /search `<keyword>`",
+                        value="Search recent jobs (reranked by your personal ML profile)", inline=False)
+        embed.add_field(name="!stats / /stats",
+                        value="Today's stats: total jobs, avg salary, top skills", inline=False)
+        embed.add_field(name="!trends / /trends `salary|keywords|subreddits`",
+                        value="30-day trends", inline=False)
+        embed.add_field(name="!export / /export",
+                        value="Download last 100 jobs as a CSV file", inline=False)
+
+        embed.add_field(name="── Alerts & Preferences ──", value="​", inline=False)
+        embed.add_field(name="/savedsearch add `name` `[keywords]` `[min_salary]` `[experience]` `[remote_only]`",
+                        value="Create a saved search — you'll be DM'd when a match is posted", inline=False)
+        embed.add_field(name="/savedsearch list / remove `name`",
+                        value="View or delete your saved searches", inline=False)
+        embed.add_field(name="/preferences set `key` `value`",
+                        value="Keys: `min_salary`, `remote_only`, `experience`, `keywords`", inline=False)
+        embed.add_field(name="/preferences view",
+                        value="Show your current preferences", inline=False)
+
+        embed.add_field(name="── Admin ──", value="​", inline=False)
+        embed.add_field(name="!setchannel / /setchannel `[#channel]`",
+                        value="🔧 Set job posting channel (defaults to current)", inline=False)
+        embed.add_field(name="/addroute `#channel` `rule_type` `rule_value`",
+                        value="🔧 Route matching jobs to a specific channel (types: keyword, subreddit, source, experience, remote)",
+                        inline=False)
+        embed.add_field(name="/listroutes / /removeroute `id`",
+                        value="🔧 View or delete routing rules", inline=False)
+        embed.add_field(name="/setmode `instant|digest`",
+                        value="🔧 Instant = post immediately; digest = batch on a schedule", inline=False)
+        embed.add_field(name="/setdigestfreq `hours`",
+                        value="🔧 How often the digest is posted (1–168 h)", inline=False)
+        embed.add_field(name="!getchannel / /getchannel",
+                        value="Show current job posting channel", inline=False)
 
         await ctx.channel.send(embed=embed)
 

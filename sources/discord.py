@@ -5,6 +5,7 @@ to send new Reddit submissions to a specified Discord channel.
 """
 
 import asyncio
+import time
 import discord
 from discord import app_commands
 
@@ -323,7 +324,6 @@ class DiscordBot(discord.Client):
 
                 freq_hours = db.settings.get_int("digest_frequency_hours", guild_id=guild_id) or 24
                 last_ts = db.settings.get_int("digest_last_sent", guild_id=guild_id) or 0
-                import time
                 if time.time() - last_ts < freq_hours * 3600:
                     continue
 
